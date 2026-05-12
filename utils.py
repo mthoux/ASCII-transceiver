@@ -1,3 +1,5 @@
+import numpy as np
+
 def index_alphabet(char: str, alphabet: str):
     if char not in alphabet:
         raise ValueError(f"Le caractère '{char}' n'est pas dans l'alphabet autorisé.")
@@ -59,16 +61,46 @@ def map_to_4qam(symbols, d):
     }
     return [coord for s in symbols for coord in mapping[s]]
 
-def unmap_from_4qam(coords):
+import numpy as np
 
+def map_to_qam(symbols, m_ary, d=1.0):
+    """
+    Mapping QAM générique pour M = 4, 16, 64...
+    """
+    k = int(np.log2(m_ary))
+    if k % 2 != 0:
+        raise ValueError("Cette fonction simplifiée ne gère que les constellations carrées (4, 16, 64...).")
+
+    # Nombre de niveaux par axe (ex: 4 pour le 16-QAM)
+    m_per_axis = int(np.sqrt(m_ary))
+    
+    coords = []
+    for s in symbols:
+        # On sépare le symbole en deux indices (I et Q)
+        idx_i = s >> (k // 2)
+        idx_q = s & ((1 << (k // 2)) - 1)
+        
+        # Conversion d'index en amplitude (ex pour M=16 : -3d, -d, d, 3d)
+        val_i = (2 * idx_i - (m_per_axis - 1)) * d
+        val_q = (2 * idx_q - (m_per_axis - 1)) * d
+        
+        coords.extend([val_i, val_q])
+    return coords
+
+def unmap_from_qam(coords, m_ary, d=1.0):
+    k = int(np.log2(m_ary))
+    m_per_axis = int(np.sqrt(m_ary))
+    
     symbols = []
     for i in range(0, len(coords), 2):
-        I = coords[i]
-        Q = coords[i+1]
+        # On quantifie les valeurs reçues vers les niveaux théoriques
+        # Formule inverse du mapping pour retrouver l'index
+        def quantize(val):
+            idx = round(((val / d) + (m_per_axis - 1)) / 2)
+            return max(0, min(m_per_axis - 1, idx))
         
-        b1 = 1 if I < 0 else 0
-        b0 = 1 if Q < 0 else 0
+        idx_i = quantize(coords[i])
+        idx_q = quantize(coords[i+1])
         
-        symbols.append((b1 << 1) | b0)
-        
+        symbols.append((idx_i << (k // 2)) | idx_q)
     return symbols

@@ -7,19 +7,24 @@ from receiver import decode, inverse_channel, quantize
 from utils import *
 
 
-def run(message, d=config.D_SPACING):
+def run(message, m_ary=4, d=1.0):
+    k = int(np.log2(m_ary)) # Bits par symbole (ex: 2 pour 4-QAM, 4 pour 16-QAM)
+    
+    # ENCODE
     num_list = construct_list(message, config.ALPHABET)
-    list = split_6bits_list_in(num_list, 2)
-    signal = map_to_4qam(list, d)
+    # On découpe 6 bits en paquets de 'k' bits
+    symbols_tx = split_6bits_list_in(num_list, k) 
+    signal = map_to_qam(symbols_tx, m_ary, d)
+
     noisy_signal = channel(signal)
-    decoded = unmap_from_4qam(noisy_signal)
-    num_list = rebuild_6bits_list_from(decoded, 2)
-    decoded_message = reconstruct_message(num_list, config.ALPHABET)
     
+    # DECODE
+    symbols_rx = unmap_from_qam(noisy_signal, m_ary, d)
+    num_list_rx = rebuild_6bits_list_from(symbols_rx, k)
+    decoded = reconstruct_message(num_list_rx, config.ALPHABET)
+
     print(f"Original : {message}")
-    print(f"Décodé   : {decoded_message}")
-    
-    return decoded_message
+    print(f"Décodé   : {decoded}")
 
 def run_pipeline(msg_input, d=config.D_SPACING):
     """Logique stable pour test.py et usage manuel."""
