@@ -52,4 +52,4 @@ def run_stress_test(total_runs=50):
         print("🚨 CRITICAL: ENERGY LIMIT EXCEEDED")
 
 if __name__ == "__main__":
-    run_stress_test(total_runs=100)
+    run_stress_test(total_runs=config.TOTAL_RUNS)
