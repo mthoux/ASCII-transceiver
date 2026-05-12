@@ -1,27 +1,39 @@
+import numpy as np
+
 ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ."
 
-def decode(flat_list):
-    points = [-7, -5, -3, -1, 1, 3, 5, 7]
-    reverse_map = {}
+def quantize(flat_list, d=2):
+    data = np.asarray(flat_list)
+    # On normalise par d, on arrondit à l'entier le plus proche (.5), puis on remultiplie
+    # La logique : round(x/d - 0.5) + 0.5 le tout multiplié par d
+    offsets = np.array([(i - 3.5) * d for i in range(8)])
     
-    for i, char in enumerate(ALPHABET):
-        real = points[i % 8]
-        imag = points[i // 8]
-        reverse_map[(real, imag)] = char
+    quantized = []
+    for val in data:
+        # On trouve la valeur de la grille la plus proche
+        idx = np.abs(offsets - val).argmin()
+        quantized.append(offsets[idx])
+        
+    return np.array(quantized)
+
+def decode(quantized_data, d=2):
+    offsets = [(i - 3.5) * d for i in range(8)]
+    reverse_map = {(offsets[i % 8], offsets[i // 8]): char for i, char in enumerate(ALPHABET)}
 
     decoded_string = ""
-    
-    for i in range(0, len(flat_list), 2):
-
-        r_val = flat_list[i]
-        i_val = flat_list[i+1] if (i+1) < len(flat_list) else 0
-
-        r_grid = int(round((r_val - 1) / 2) * 2 + 1)
-        i_grid = int(round((i_val - 1) / 2) * 2 + 1)
-        
-        r_grid = max(-7, min(7, r_grid))
-        i_grid = max(-7, min(7, i_grid))
-        
-        decoded_string += reverse_map.get((r_grid, i_grid), "?")
-
+    for i in range(0, len(quantized_data), 2):
+        pair = (quantized_data[i], quantized_data[i+1])
+        decoded_string += reverse_map.get(pair, "?")
     return decoded_string
+
+def inverse_channel(data, transform_type):
+    # (Gardé tel quel)
+    data = np.asarray(data, dtype=float)
+    pairs = data.reshape(-1, 2)
+    a, b = pairs[:, 0], pairs[:, 1]
+    if transform_type == 1: rx = np.stack([a, b], axis=1)
+    elif transform_type == 2: rx = np.stack([b, -a], axis=1)
+    elif transform_type == 3: rx = np.stack([-a, -b], axis=1)
+    elif transform_type == 4: rx = np.stack([-b, a], axis=1)
+    else: raise ValueError("Invalid transformation index.")
+    return rx.flatten()
