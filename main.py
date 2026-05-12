@@ -1,28 +1,23 @@
 import sys
 import numpy as np
-import channel 
+
+from transmitter import encode
+from channel import channel
+from receiver import decode
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        sys.exit("Donne un message !")
+        sys.exit("Usage: python main.py [message string]")
 
-    # Transform each letter in its ASCII code
     message = sys.argv[1]
-    digits = [float(ord(c)) for c in message]
-
-    # Canal must have an even entry
-    if len(digits) % 2 != 0:
-        digits.append(0.0)
-
-    x = np.array(digits)
-    y = channel.channel(x)
-
-    # Dummy decoder
-    decoded = []
-    for nb in y:
-        decoded.append(chr(abs(round(nb))))
+    x = encode(message)
+    y = channel(x)
+    z = decode(y)
 
     print(f"Message : {message}")
     print(f"Send    : {x}")
     print(f"Receive : {[f'{val:.2f}' for val in y]}")
-    print(f"Decoded : {decoded}")
+    print(f"Decoded : {z}")
+
+    energie = np.sum(np.array(x)**2)
+    print(f"Énergie totale dépensée : {energie}")
