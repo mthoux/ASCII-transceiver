@@ -4,6 +4,22 @@ import config
 from transmitter import encode
 from channel import channel
 from receiver import decode, inverse_channel, quantize
+from utils import *
+
+
+def run(message, d=config.D_SPACING):
+    num_list = construct_list(message, config.ALPHABET)
+    list = split_6bits_list_in(num_list, 2)
+    signal = map_to_4qam(list, d)
+    noisy_signal = channel(signal)
+    decoded = unmap_from_4qam(noisy_signal)
+    num_list = rebuild_6bits_list_from(decoded, 2)
+    decoded_message = reconstruct_message(num_list, config.ALPHABET)
+    
+    print(f"Original : {message}")
+    print(f"Décodé   : {decoded_message}")
+    
+    return decoded_message
 
 def run_pipeline(msg_input, d=config.D_SPACING):
     """Logique stable pour test.py et usage manuel."""
@@ -44,31 +60,39 @@ def run_pipeline(msg_input, d=config.D_SPACING):
         "points": {"tx": tx_data, "rx": rx_data, "cx": corrected, "qx": quantized}
     }
 
+# if __name__ == "__main__":
+#     if len(sys.argv) < 2:
+#         print("Usage: python main.py 'message'")
+#         sys.exit()
+
+#     msg = sys.argv[1]
+#     res = run_pipeline(msg)
+
+#     # --- LE SUPER AFFICHAGE ---
+#     def sep(): print("-" * 65)
+#     print(f"\n{'='*65}\n{'DIAGNOSTICS & SUMMARY'.center(63)}\n{'='*65}")
+#     print(f"{'Original':<20}: {msg.ljust(40)[:40]}")
+#     print(f"{'Decoded':<20}: {res['decoded']}")
+#     print(f"{'Detected Rotation':<20}: ID {res['t_id']} (Pilot: {res['pilot_rx'][0]:.2f}, {res['pilot_rx'][1]:.2f})")
+#     sep()
+    
+#     # Visualisation des points (5 premiers)
+#     tx, rx, cx, qx = res['points']['tx'], res['points']['rx'], res['points']['cx'], res['points']['qx']
+#     print(f"{'TYPE':<12} | {'SYMBOLS (Sample of 5)':<45}")
+#     sep()
+#     for label, data in [("TX (Sent)", tx), ("RX (Recv)", rx), ("CX (Corr)", cx), ("QX (Quant)", qx)]:
+#         pts = " ".join([f"({data[i]:.1f},{data[i+1]:.1f})" for i in range(0, 10, 2)])
+#         print(f"{label:<12} | {pts} ...")
+    
+#     sep()
+#     color = "\033[92m" if res['energy'] <= config.MAX_ENERGY else "\033[91m"
+#     print(f"TOTAL ENERGY: {color}{res['energy']:.2f}\033[0m / {config.MAX_ENERGY} | N: {res['n']}")
+#     print(f"{'='*65}\n")
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python main.py 'message'")
         sys.exit()
 
     msg = sys.argv[1]
-    res = run_pipeline(msg)
-
-    # --- LE SUPER AFFICHAGE ---
-    def sep(): print("-" * 65)
-    print(f"\n{'='*65}\n{'DIAGNOSTICS & SUMMARY'.center(63)}\n{'='*65}")
-    print(f"{'Original':<20}: {msg.ljust(40)[:40]}")
-    print(f"{'Decoded':<20}: {res['decoded']}")
-    print(f"{'Detected Rotation':<20}: ID {res['t_id']} (Pilot: {res['pilot_rx'][0]:.2f}, {res['pilot_rx'][1]:.2f})")
-    sep()
-    
-    # Visualisation des points (5 premiers)
-    tx, rx, cx, qx = res['points']['tx'], res['points']['rx'], res['points']['cx'], res['points']['qx']
-    print(f"{'TYPE':<12} | {'SYMBOLS (Sample of 5)':<45}")
-    sep()
-    for label, data in [("TX (Sent)", tx), ("RX (Recv)", rx), ("CX (Corr)", cx), ("QX (Quant)", qx)]:
-        pts = " ".join([f"({data[i]:.1f},{data[i+1]:.1f})" for i in range(0, 10, 2)])
-        print(f"{label:<12} | {pts} ...")
-    
-    sep()
-    color = "\033[92m" if res['energy'] <= config.MAX_ENERGY else "\033[91m"
-    print(f"TOTAL ENERGY: {color}{res['energy']:.2f}\033[0m / {config.MAX_ENERGY} | N: {res['n']}")
-    print(f"{'='*65}\n")
+    run(msg)

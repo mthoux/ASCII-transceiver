@@ -1,6 +1,6 @@
 # config.py
 ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ."
-D_SPACING = 4.3  # Optimal for 4-QAM under 1200 energy units
+D_SPACING = 2
 
 # Constraints
 MSG_LEN = 40
