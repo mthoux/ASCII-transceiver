@@ -1,27 +1,31 @@
-# test.py
 import random
 import config
-from main import run_pipeline
+from main import transceiver
+
+# Couleurs ANSI
+GREEN = "\033[92m"
+RED = "\033[91m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
 
 def generate_random_msg():
     return ''.join(random.choice(config.ALPHABET) for _ in range(config.MSG_LEN))
 
-def run_stress_test(total_runs=50):
-    print(f"--- Starting Stress Test ({total_runs} messages) ---")
-    print(f"{'#':<3} | {'Original (start)':<25} | {'Energy':<8} | {'Status'}")
-    print("-" * 60)
-
-    # Base messages to always include
-    test_set = [
-        "The quick brown fox jumps over the dog.",
-        "A1b2C3d4E5f6G7h8I9j0 .A1b2C3d4E5f6G7h8I9",
-        "Testing 1234567890 symbols and spaces. ", # Chiffres et finaux
-        "AAAAAaaaaaBBBBBbbbbbCCCCCcccccDDDDDdddd", # Répétitions (stress test)
-        "Short msg.                              ", # Padding manuel
-        "Z.Z.Z.Z.Z.Z.Z.Z.Z.Z.Z.Z.Z.Z.Z.Z.Z.Z.Z.Z.", # Alternance haute énergie
-    ]
+def run_stress_test(total_runs=config.TOTAL_RUNS):
+    # --- AFFICHAGE CONFIG ---
+    print(f"\n{BOLD}{'='*70}")
+    print(f"--- STRESS TEST CONFIGURATION ---".center(70))
+    print(f"{'='*70}{RESET}")
+    print(f"Modulation : {config.M_ARY}-QAM")
+    print(f"Distance d : {config.D_SPACING}")
+    print(f"Thresholds : Energy <= {config.MAX_ENERGY} | Length <= {config.MAX_LENGTH}")
+    print(f"Runs       : {total_runs} messages")
     
-    # Fill with random
+    print(f"\n{'='*70}")
+    print(f"{'#':<3} | {'Original (start)':<25} | {'Energy':<8} | {'Status'}")
+    print("-" * 70)
+
+    test_set = list(config.TEST_SET)
     while len(test_set) < total_runs:
         test_set.append(generate_random_msg())
 
@@ -29,27 +33,45 @@ def run_stress_test(total_runs=50):
     total_energy = 0
 
     for i, msg in enumerate(test_set):
-        res = run_pipeline(msg)
+        res = transceiver(msg, m_ary=config.M_ARY, d=config.D_SPACING)
         
-        total_energy += res['energy']
-        if res['success']:
+        decoded = res['output']['output_message_text']
+        energy  = res['stats']['energy']
+        length  = len(res['input']['input_signal'])
+
+        # FAILLE POSSIBLE : Le padding. On strip ou on compare sur la longueur d'origine.
+        # Ici on compare si le message original est contenu dans le décodé ou vice-versa
+        is_correct = (msg.strip() == decoded.strip())
+        is_energy_ok = (energy <= config.MAX_ENERGY)
+        is_length_ok = (length <= config.MAX_LENGTH)
+        
+        run_success = is_correct and is_energy_ok and is_length_ok
+
+        if run_success:
             success_count += 1
         
-        status = "✅ OK" if res['success'] else "❌ FAIL"
-        if i < 10: # Display first 10
-            print(f"{i+1:<3} | {msg[:25]}... | {res['energy']:>8.1f} | {status}")
-        elif i == 10:
+        total_energy += energy
+        
+        if i < 15:
+            status = f"{GREEN}OK{RESET}" if run_success else f"{RED}FAIL{RESET}"
+            # On affiche la raison de l'échec si c'est pas correct
+            reason = "" if is_correct else " (Text)"
+            print(f"{i+1:<3} | {msg[:25]:<25}... | {energy:>8.1f} | {status}{reason}")
+        elif i == 15:
             print("...")
 
     accuracy = (success_count / total_runs) * 100
     avg_energy = total_energy / total_runs
 
-    print("-" * 60)
-    print(f"FINAL ACCURACY: {accuracy:.1f}% ({success_count}/{total_runs})")
-    print(f"AVG ENERGY: {avg_energy:.2f} (Limit: {config.MAX_ENERGY})")
+    print("-" * 70)
+    print(f"ACCURACY   : {accuracy:.1f}% ({success_count}/{total_runs})")
+    print(f"AVG ENERGY : {avg_energy:.2f} (Limit: {config.MAX_ENERGY})")
     
-    if avg_energy > config.MAX_ENERGY:
-        print("🚨 CRITICAL: ENERGY LIMIT EXCEEDED")
+    if accuracy == 100 and avg_energy <= config.MAX_ENERGY:
+        print(f"\n{GREEN}{BOLD}SYSTEM VALIDATED ✅{RESET}")
+    else:
+        print(f"\n{RED}{BOLD}SYSTEM UNSTABLE ❌{RESET}")
+    print(f"{BOLD}{'='*70}{RESET}\n")
 
 if __name__ == "__main__":
-    run_stress_test(total_runs=config.TOTAL_RUNS)
+    run_stress_test()

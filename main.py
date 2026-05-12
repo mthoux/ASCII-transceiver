@@ -1,98 +1,73 @@
 import sys
 import numpy as np
 import config
-from transmitter import encode
 from channel import channel
-from receiver import decode, inverse_channel, quantize
 from utils import *
+import visualization
 
 
-def run(message, m_ary=4, d=1.0):
-    k = int(np.log2(m_ary)) # Bits par symbole (ex: 2 pour 4-QAM, 4 pour 16-QAM)
+def transceiver(input_message_text, m_ary=4, d=1.0):
+    k = int(np.log2(m_ary)) 
+
+    # --- TRANSMITTER ---
+    # Construct signal, start with pilot
+    input_pilot = [+d, +d]
+    input_message_numbers  = construct_list(input_message_text, config.ALPHABET)
+    input_message_bits     = to_bitstream(input_message_numbers, bits_per_char=6)
+    input_message_symbols  = bitstream_to_symbols(input_message_bits, k)
+    input_message_modulate = map_to_qam(input_message_symbols, m_ary, d)
+    input_signal = input_pilot + input_message_modulate
+
+    # --- CANAL ---
+    output_signal = channel(input_signal)
     
-    # ENCODE
-    num_list = construct_list(message, config.ALPHABET)
-    # On découpe 6 bits en paquets de 'k' bits
-    symbols_tx = split_6bits_list_in(num_list, k) 
-    signal = map_to_qam(symbols_tx, m_ary, d)
-
-    noisy_signal = channel(signal)
+    # --- RECEIVER ---
+    # Pilot analysis
+    output_pilot = output_signal[0:2]
+    pilot_re, pilot_im = output_pilot[0], output_pilot[1]
     
-    # DECODE
-    symbols_rx = unmap_from_qam(noisy_signal, m_ary, d)
-    num_list_rx = rebuild_6bits_list_from(symbols_rx, k)
-    decoded = reconstruct_message(num_list_rx, config.ALPHABET)
+    if   pilot_re >= 0 and pilot_im >= 0:   t_id = 1
+    elif pilot_re <  0 and pilot_im >= 0:   t_id = 2
+    elif pilot_re <  0 and pilot_im <  0:   t_id = 3
+    else:                                   t_id = 4
 
-    print(f"Original : {message}")
-    print(f"Décodé   : {decoded}")
+    output_message_corrected = inverse_channel(output_signal[2:], t_id)
+    output_message_symbols = unmap_from_qam(output_message_corrected, m_ary, d)
+    output_message_bits = symbols_to_bitstream(output_message_symbols, k)
+    output_message_numbers = from_bitstream(output_message_bits, bits_per_char=6)
+    output_message_text = reconstruct_message(output_message_numbers, config.ALPHABET)
 
-def run_pipeline(msg_input, d=config.D_SPACING):
-    """Logique stable pour test.py et usage manuel."""
-    msg_original = msg_input.ljust(config.MSG_LEN)[:config.MSG_LEN]
-    
-    # 1. Pilot (1.5x pour la robustesse) + Data
-    pilot_sent = [1.5 * d, 1.5 * d]
-    tx_data = encode(msg_original, d=d)
-    full_tx = pilot_sent + tx_data
-    
-    # 2. Channel
-    energy = np.sum(np.array(full_tx)**2)
-    full_rx = channel(full_tx)
-    
-    # 3. Pilot Analysis
-    p_re, p_im = full_rx[0], full_rx[1]
-    rx_data = full_rx[2:]
-    
-    if p_re >= 0 and p_im >= 0:   t_id = 1
-    elif p_re < 0 and p_im >= 0:  t_id = 2
-    elif p_re < 0 and p_im < 0:   t_id = 3
-    else:                         t_id = 4
+    # --- STATS ---
+    energy = np.sum(np.array(input_signal)**2)
 
-    # 4. Recovery
-    corrected = inverse_channel(rx_data, t_id)
-    quantized = quantize(corrected, d=d)
-    decoded_msg = decode(quantized, d=d)
-
-    # RETOUR STRICTEMENT IDENTIQUE POUR TEST.PY
     return {
-        "decoded": decoded_msg,
-        "energy": energy,
-        "n": len(full_tx),
-        "t_id": t_id,
-        "success": decoded_msg == msg_original,
-        # Données bonus pour l'affichage manuel
-        "pilot_rx": [p_re, p_im],
-        "points": {"tx": tx_data, "rx": rx_data, "cx": corrected, "qx": quantized}
+        "config": {
+            "m_ary": m_ary,
+            "k": k,
+            "d": d
+        },
+        "input": {
+            "input_pilot": input_pilot,
+            "input_message_numbers": input_message_numbers,
+            "input_message_bits": input_message_bits,
+            "input_message_symbols": input_message_symbols,
+            "input_message_modulate": input_message_modulate,
+            "input_signal": input_signal
+        },
+        "output": {
+            "output_pilot": output_pilot,
+            "t_id": t_id,
+            "output_message_corrected": output_message_corrected,
+            "output_message_quantized": map_to_qam(output_message_symbols, m_ary, d),
+            "output_message_symbols": output_message_symbols,
+            "output_message_bits": output_message_bits,
+            "output_message_numbers": output_message_numbers,
+            "output_message_text": output_message_text
+        },
+        "stats": {
+            "energy": energy
+        }
     }
-
-# if __name__ == "__main__":
-#     if len(sys.argv) < 2:
-#         print("Usage: python main.py 'message'")
-#         sys.exit()
-
-#     msg = sys.argv[1]
-#     res = run_pipeline(msg)
-
-#     # --- LE SUPER AFFICHAGE ---
-#     def sep(): print("-" * 65)
-#     print(f"\n{'='*65}\n{'DIAGNOSTICS & SUMMARY'.center(63)}\n{'='*65}")
-#     print(f"{'Original':<20}: {msg.ljust(40)[:40]}")
-#     print(f"{'Decoded':<20}: {res['decoded']}")
-#     print(f"{'Detected Rotation':<20}: ID {res['t_id']} (Pilot: {res['pilot_rx'][0]:.2f}, {res['pilot_rx'][1]:.2f})")
-#     sep()
-    
-#     # Visualisation des points (5 premiers)
-#     tx, rx, cx, qx = res['points']['tx'], res['points']['rx'], res['points']['cx'], res['points']['qx']
-#     print(f"{'TYPE':<12} | {'SYMBOLS (Sample of 5)':<45}")
-#     sep()
-#     for label, data in [("TX (Sent)", tx), ("RX (Recv)", rx), ("CX (Corr)", cx), ("QX (Quant)", qx)]:
-#         pts = " ".join([f"({data[i]:.1f},{data[i+1]:.1f})" for i in range(0, 10, 2)])
-#         print(f"{label:<12} | {pts} ...")
-    
-#     sep()
-#     color = "\033[92m" if res['energy'] <= config.MAX_ENERGY else "\033[91m"
-#     print(f"TOTAL ENERGY: {color}{res['energy']:.2f}\033[0m / {config.MAX_ENERGY} | N: {res['n']}")
-#     print(f"{'='*65}\n")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -100,4 +75,8 @@ if __name__ == "__main__":
         sys.exit()
 
     msg = sys.argv[1]
-    run(msg)
+    # On capture le dictionnaire retourné par le transceiver
+    res = transceiver(msg, m_ary=config.M_ARY, d=config.D_SPACING)
+    
+    # On appelle la nouvelle fonction d'affichage
+    visualization.display_diagnostics(msg, res)
