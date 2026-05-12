@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
 def display_diagnostics(msg, res):
     def sep(): print("-" * 65)
     GREEN, RED, RESET, BOLD = "\033[92m", "\033[91m", "\033[0m", "\033[1m"
@@ -65,3 +68,37 @@ def display_diagnostics(msg, res):
         print(f"{BOLD}VERDICT : {RED}INVALID ❌ ({', '.join(errors)}){RESET}")
         
     print(f"{BOLD}{'='*65}{RESET}\n")
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+def plot_data(data):
+    # On récupère le signal complet (Pilote + Message)
+    tx_sig = np.array(data["input"]["input_signal"])
+    rx_sig = np.array(data["output"]["output_message_corrected"]) # Signal après correction
+
+    # Conversion en complexes (Re + j*Im)
+    tx_cplx = tx_sig[0::2] + 1j * tx_sig[1::2]
+    rx_cplx = rx_sig[0::2] + 1j * rx_sig[1::2]
+
+    plt.figure(figsize=(8, 8))
+
+    # Axes en GRAS (Priorité visuelle)
+    plt.axhline(0, color='black', linewidth=2.5, zorder=1)
+    plt.axvline(0, color='black', linewidth=2.5, zorder=1)
+
+    # Données du message (on ignore le premier symbole qui est le pilote)
+    plt.scatter(rx_cplx[1:].real, rx_cplx[1:].imag, color='red', alpha=0.5, s=20, label='Reçu (corrigé)')
+    plt.scatter(tx_cplx[1:].real, tx_cplx[1:].imag, color='blue', marker='x', s=50, label='Théorique')
+
+    # Pilote (Le premier symbole complexe : index 0)
+    plt.scatter(tx_cplx[0].real, tx_cplx[0].imag, color='green', marker='D', s=120, label='Pilote TX')
+    plt.scatter(rx_cplx[0].real, rx_cplx[0].imag, color='orange', marker='o', s=120, edgecolors='black', label='Pilote RX')
+
+    plt.xlabel(r"$\bf{In-phase (I)}$", fontsize=12)
+    plt.ylabel(r"$\bf{Quadrature (Q)}$", fontsize=12)
+    plt.title(f"Constellation QAM-{data['config']['m_ary']}")
+    plt.grid(True, linestyle=':', alpha=0.6)
+    plt.legend()
+    
+    plt.show()

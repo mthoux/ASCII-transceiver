@@ -1,6 +1,6 @@
 # config.py
 ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ."
-D_SPACING = 3
+D_SPACING = 5
 M_ARY = 4
 
 # --- CONFIG TEST ---

@@ -55,6 +55,7 @@ def transceiver(input_message_text, m_ary=4, d=1.0):
             "input_signal": input_signal
         },
         "output": {
+            "output_signal": output_signal,
             "output_pilot": output_pilot,
             "t_id": t_id,
             "output_message_corrected": output_message_corrected,
@@ -75,8 +76,7 @@ if __name__ == "__main__":
         sys.exit()
 
     msg = sys.argv[1]
-    # On capture le dictionnaire retourné par le transceiver
     res = transceiver(msg, m_ary=config.M_ARY, d=config.D_SPACING)
     
-    # On appelle la nouvelle fonction d'affichage
     visualization.display_diagnostics(msg, res)
+    visualization.plot_data(res)
