@@ -36,3 +36,6 @@ wheels/
 # IDE (Optionnel)
 .vscode/
 .idea/
+
+note.txt
+garbage/

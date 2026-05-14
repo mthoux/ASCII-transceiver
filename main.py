@@ -6,14 +6,13 @@ from utils import *
 import visualization
 
 
-def transceiver(input_message_text, m_ary=4, d=1.0):
+def transceiver(input_message_text, encoding_dict=config.classic_encoding, m_ary=4, d=1.0,):
     k = int(np.log2(m_ary)) 
 
     # --- TRANSMITTER ---
     # Construct signal, start with pilot
     input_pilot = [+d, +d]
-    input_message_numbers  = construct_list(input_message_text, config.ALPHABET)
-    input_message_bits     = to_bitstream(input_message_numbers, bits_per_char=6)
+    input_message_bits     = to_bitstream(input_message_text, encoding_dict)
     input_message_symbols  = bitstream_to_symbols(input_message_bits, k)
     input_message_modulate = map_to_qam(input_message_symbols, m_ary, d)
     input_signal = input_pilot + input_message_modulate
@@ -34,11 +33,15 @@ def transceiver(input_message_text, m_ary=4, d=1.0):
     output_message_corrected = inverse_channel(output_signal[2:], t_id)
     output_message_symbols = unmap_from_qam(output_message_corrected, m_ary, d)
     output_message_bits = symbols_to_bitstream(output_message_symbols, k)
-    output_message_numbers = from_bitstream(output_message_bits, bits_per_char=6)
-    output_message_text = reconstruct_message(output_message_numbers, config.ALPHABET)
+    output_message_text = from_bitstream(output_message_bits, encoding_dict)
 
     # --- STATS ---
     energy = np.sum(np.array(input_signal)**2)
+    energy_per_bit = energy / len(input_message_bits)
+
+    print(f"DEBUG BITS IN:  {input_message_bits[:50]}")
+    print(f"DEBUG BITS OUT: {output_message_bits[:50]}")
+    print(f"MATCH: {input_message_bits == output_message_bits}")
 
     return {
         "config": {
@@ -48,7 +51,6 @@ def transceiver(input_message_text, m_ary=4, d=1.0):
         },
         "input": {
             "input_pilot": input_pilot,
-            "input_message_numbers": input_message_numbers,
             "input_message_bits": input_message_bits,
             "input_message_symbols": input_message_symbols,
             "input_message_modulate": input_message_modulate,
@@ -62,11 +64,11 @@ def transceiver(input_message_text, m_ary=4, d=1.0):
             "output_message_quantized": map_to_qam(output_message_symbols, m_ary, d),
             "output_message_symbols": output_message_symbols,
             "output_message_bits": output_message_bits,
-            "output_message_numbers": output_message_numbers,
             "output_message_text": output_message_text
         },
         "stats": {
-            "energy": energy
+            "energy": energy,
+            "energy_per_bit": energy_per_bit
         }
     }
 
@@ -76,7 +78,7 @@ if __name__ == "__main__":
         sys.exit()
 
     msg = sys.argv[1]
-    res = transceiver(msg, m_ary=config.M_ARY, d=config.D_SPACING)
+    res = transceiver(msg, config.classic_encoding, m_ary=config.M_ARY, d=config.D_SPACING)
     
     visualization.display_diagnostics(msg, res)
-    visualization.plot_data(res)
+    #visualization.plot_data(res)

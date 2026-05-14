@@ -6,56 +6,47 @@ def index_alphabet(char: str, alphabet: str):
         raise ValueError(f"Caractère '{char}' non autorisé.")
     return alphabet.index(char) 
 
-def construct_list(message: str, alphabet: str):
-    return [index_alphabet(char, alphabet) for char in message]
-
 def reconstruct_message(indices: list, alphabet: str):
     return "".join([alphabet[i] for i in indices])
 
-# --- NOUVELLE LOGIQUE : BITSTREAM GÉNÉRIQUE ---
-def to_bitstream(indices: list, bits_per_char: int = 6):
-    """Transforme les indices en une liste de bits (0, 1)."""
-    bitstream = []
-    for val in indices:
-        for i in reversed(range(bits_per_char)):
-            bitstream.append((val >> i) & 1)
-    return bitstream
 
-def from_bitstream(bitstream: list, bits_per_char: int = 6):
-    """Transforme une liste de bits en indices (0-63)."""
-    indices = []
-    for i in range(0, len(bitstream), bits_per_char):
-        chunk = bitstream[i:i + bits_per_char]
-        if len(chunk) < bits_per_char: break # On ignore le padding final
-        val = 0
-        for bit in chunk:
-            val = (val << 1) | bit
-        indices.append(val)
-    return indices
+def to_bitstream(text, encoding_dict):
+    """Retourne une chaîne de caractères '0' et '1'."""
+    return "".join([encoding_dict[char] for char in text])
 
-def bitstream_to_symbols(bitstream: list, k: int):
-    """Regroupe les bits par paquets de k pour la modulation."""
-    # Padding : on ajoute des 0 pour que la longueur soit divisible par k
-    remainder = len(bitstream) % k
-    if remainder != 0:
-        bitstream.extend([0] * (k - remainder))
+def from_bitstream(bitstream_str, encoding_dict):
+    """
+    Décode une chaîne de bits en texte brut via un dictionnaire variable.
+    """
+    # Inversion du dictionnaire pour la recherche
+    reverse_dict = {v: k for k, v in encoding_dict.items()}
+    
+    decoded_text = ""
+    current_buffer = ""
+    
+    # On parcourt chaque caractère '0' ou '1' de la chaîne
+    for bit in bitstream_str:
+        current_buffer += bit 
+        
+        if current_buffer in reverse_dict:
+            decoded_text += reverse_dict[current_buffer]
+            current_buffer = "" 
+            
+    return decoded_text
+
+def bitstream_to_symbols(bitstream_str: str, k: int):
+    """Regroupe par paquets de k. Lève une erreur si le compte n'est pas bon."""
+    if len(bitstream_str) % k != 0:
+        raise ValueError(f"Bitstream length ({len(bitstream_str)}) is not a multiple of k={k}.")
     
     symbols = []
-    for i in range(0, len(bitstream), k):
-        chunk = bitstream[i:i + k]
-        val = 0
-        for bit in chunk:
-            val = (val << 1) | bit
-        symbols.append(val)
+    for i in range(0, len(bitstream_str), k):
+        chunk = bitstream_str[i:i + k]
+        symbols.append(int(chunk, 2))
     return symbols
 
 def symbols_to_bitstream(symbols: list, k: int):
-    """Éclate les symboles reçus en flux de bits."""
-    bitstream = []
-    for s in symbols:
-        for i in reversed(range(k)):
-            bitstream.append((s >> i) & 1)
-    return bitstream
+    return "".join([format(s, 'b').zfill(k) for s in symbols])
 
 # --- MODULATION GÉNÉRIQUE (M=2 à M=64) ---
 def map_to_qam(symbols, m_ary, d=1.0):

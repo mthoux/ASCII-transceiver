@@ -6,12 +6,13 @@ def display_diagnostics(msg, res):
     GREEN, RED, RESET, BOLD = "\033[92m", "\033[91m", "\033[0m", "\033[1m"
 
     # Extraction des données de config et de résultats
-    conf     = res['config']
-    out_text = res['output']['output_message_text']
-    t_id     = res['output']['t_id']
-    pilot_rx = res['output']['output_pilot']
-    energy   = res['stats']['energy']
-    total_l  = len(res['input']['input_signal'])
+    conf           = res['config']
+    out_text       = res['output']['output_message_text']
+    t_id           = res['output']['t_id']
+    pilot_rx       = res['output']['output_pilot']
+    energy         = res['stats']['energy']
+    energy_per_bit = res['stats']['energy_per_bit']
+    total_l        = len(res['input']['input_signal'])
 
     # 1. En-tête et Configuration
     print(f"\n{BOLD}{'='*65}")
@@ -57,8 +58,10 @@ def display_diagnostics(msg, res):
     # 4. Métriques et Verdict
     e_ok, l_ok, c_ok = energy <= 1200, total_l <= 500, msg == out_text
     
-    print(f"ENERGY  : {GREEN if e_ok else RED}{energy:.2f}{RESET} / 1200")
-    print(f"LENGTH  : {GREEN if l_ok else RED}{total_l}{RESET} / 500")
+    print(f"ENERGY          : {GREEN if e_ok else RED}{energy:.2f}{RESET} / 1200")
+    print(f"LENGTH          : {GREEN if l_ok else RED}{total_l}{RESET} / 500")
+    print(f"Energy per bit  : {energy_per_bit:.2f} J")
+
     sep()
 
     if e_ok and l_ok and c_ok:
