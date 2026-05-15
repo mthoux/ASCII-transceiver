@@ -19,7 +19,7 @@ def pilot_analysis(signal):
     return t_id, (pilot_re, pilot_im)
 
 
-def transceiver(input_text, encoding_dict=config.classic_encoding, d=1.0, n_pilot = 3):
+def transceiver(input_text, encoding_dict, d, n_pilot):
 
     K=7  
     G=[0o171,0o133]
@@ -31,7 +31,7 @@ def transceiver(input_text, encoding_dict=config.classic_encoding, d=1.0, n_pilo
     # Source coding
     input_bits = to_bitstream(input_text, encoding_dict)
     input_encoded = conv_code.encode(input_bits, K, G)
-    input_modulate = conv_code.map_to_4qam_custom_2(input_encoded, d)
+    input_modulate = map_to_4qam(input_encoded, d)
     input_signal = input_pilot + input_modulate
 
     # --- CANAL ---
@@ -48,7 +48,6 @@ def transceiver(input_text, encoding_dict=config.classic_encoding, d=1.0, n_pilo
     ]
     
     output_bits = conv_code.decode(grouped_for_viterbi, K, G, d)
-    output_bits = output_bits[:-(K - 1)] if K > 1 else output_bits # Remove flush bits
     output_text = from_bitstream(output_bits, encoding_dict)
 
     # --- STATS ---
@@ -89,6 +88,6 @@ if __name__ == "__main__":
         sys.exit()
 
     msg = sys.argv[1]
-    res = transceiver(msg, config.classic_encoding, d=config.D_SPACING)
+    res = transceiver(msg, config.classic_encoding, d=config.D_SPACING, n_pilot=4)
 
     visualization.display_diagnostics(res)
