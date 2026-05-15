@@ -1,6 +1,6 @@
 import random
-import config
-from main import transceiver
+import src.config as config
+from src.main import transceiver
 
 # Couleurs ANSI
 GREEN = "\033[92m"

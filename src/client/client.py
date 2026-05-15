@@ -19,7 +19,7 @@ import socket
 
 import numpy as np
 
-import channel_helper as ch
+import src.client.channel_helper as ch
 
 def parse_args():
     parser = argparse.ArgumentParser(description="COM-302 black-box channel simulator. (client)",

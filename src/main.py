@@ -1,10 +1,10 @@
 import sys
 import numpy as np
-import config
-from channel import channel
-from utils import *
-import visualization
-import conv_code
+import src.config as config
+from src.channel import channel
+from src.utils import *
+import src.tools.visualization as visualization
+import src.conv_code as conv_code
 
 def pilot_analysis(signal):
 
@@ -45,22 +45,23 @@ def transceiver(input_text, encoding_dict, d, n_pilot, K, G):
 
     return {
         "config": {
-            "d": d
+            "d": d,
+            "n_pilot": n_pilot
         },
         "input": {
-            "input_text": input_text,
-            "input_pilot": input_pilot,
-            "input_bits": input_bits,
-            "input_modulate": input_modulate,
-            "input_signal": input_signal
+            "text": input_text,
+            "pilot": input_pilot,
+            "bits": input_bits,
+            "modulate": input_modulate,
+            "signal": input_signal
         },
         "output": {
-            "output_signal": output_signal,
-            "output_pilot": output_pilot,
+            "signal": output_signal,
             "t_id": t_id,
-            "output_corrected": output_corrected,
-            "output_bits": output_bits,
-            "output_text": output_text
+            "corrected": output_corrected,
+            "bits": output_bits,
+            "pilot": output_pilot,
+            "text": output_text
         },
         "stats": {
             "energy": energy,
@@ -83,3 +84,4 @@ if __name__ == "__main__":
                       G=config.G)
 
     visualization.display_diagnostics(res)
+    visualization.plot_constellations(res)
