@@ -1,5 +1,5 @@
 # config.py
-D_SPACING = 1.5
+D_SPACING = 1.3
 M_ARY = 4
 
 # --- CONFIG TEST ---
