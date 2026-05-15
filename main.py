@@ -46,16 +46,40 @@ def transceiver(input_message_text, encoding_dict=config.classic_encoding, m_ary
     else:                                   t_id = 4
 
     output_message_corrected = inverse_channel(output_signal[2*N_PILOTS:], t_id)
-    output_message_symbols = unmap_from_qam(output_message_corrected, m_ary, d)
-    output_message_bits = symbols_to_bitstream(output_message_symbols, k)
 
-    output_message_bits = np.array([int(b) for b in output_message_bits])
-    output_message_bits = cc.viterbi_decode(output_message_bits.astype(float), trellis, decoding_type='hard')
+    # Au lieu de unmap_from_qam qui donne des 0/1, on extrait la valeur "brute"
+    # Pour la 4-QAM, la partie Réelle porte un bit, l'Imaginaire porte l'autre.
+    soft_bits = []
+    for i in range(0, len(output_message_corrected), 2):
+        re = output_message_corrected[i]
+        im = output_message_corrected[i+1]
+        # On normalise : si c'est positif, c'est proche du bit '0'
+        # Si c'est négatif, c'est proche du bit '1'
+        # Commpy attend des valeurs où le signe et la magnitude indiquent la confiance
+        soft_bits.append(re) 
+        soft_bits.append(im)
+
+    soft_bits = np.array(soft_bits)
+
+    # On décode en mode SOFT
+    # Attention : il faut parfois inverser le signe (soft_bits * -1) 
+    # selon comment ton to_bitstream a mappé le 0 et le 1.
+    output_message_bits = cc.viterbi_decode(soft_bits, trellis, decoding_type='soft')
+    
+    #output_message_symbols = unmap_from_qam(output_message_corrected, m_ary, d)
+    #output_message_bits = symbols_to_bitstream(output_message_symbols, k)
+
+    #output_message_bits = np.array([int(b) for b in output_message_bits])
+    #output_message_bits = cc.viterbi_decode(output_message_bits.astype(float), trellis, decoding_type='hard')
     flush_size = memory[0]
     output_message_bits = output_message_bits[:-flush_size] if flush_size > 0 else output_message_bits
     output_message_bits = "".join(output_message_bits.astype(str))
 
     output_message_text = from_bitstream(output_message_bits, encoding_dict)
+
+    # --- Pour que tes diagnostics de fin fonctionnent toujours ---
+    # On recrée les symboles quantifiés juste pour l'affichage
+    output_message_symbols = unmap_from_qam(output_message_corrected, m_ary, d)
 
     # --- STATS ---
     energy = np.sum(np.array(input_signal)**2)
