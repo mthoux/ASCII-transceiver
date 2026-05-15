@@ -127,7 +127,7 @@ def decode(received_signal: list[list[float]], K: int, G: list[int],
 
     Paramètres
     ----------
-    received_signal : liste de (N + K-1) vecteurs réels de longueur len(G)
+    received_signal : liste des symbols recus
     K               : longueur de contrainte
     G               : polynômes générateurs
     d               : amplitude de la constellation
@@ -141,11 +141,16 @@ def decode(received_signal: list[list[float]], K: int, G: list[int],
 
     n_flush_symbols = K - 1
     total_symbols   = len(received_signal)
+    len_G           = len(G)
+    total_symbols   = len(received_signal) // len_G
 
     curr_list = [None] * n_states
     curr_list[0] = {"cost": 0.0, "path": []}
 
-    for idx, received_symbols in enumerate(received_signal):
+    for idx, start_idx in enumerate(range(0, len(received_signal), len_G)):
+
+        received_symbols = received_signal[start_idx : start_idx + len_G]
+
         next_list       = [None] * n_states
         is_flushing     = idx >= total_symbols - n_flush_symbols
         possible_inputs = [0] if is_flushing else [0, 1]

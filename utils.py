@@ -1,5 +1,28 @@
 import numpy as np
 
+# ---------------------------------------------------------------------------
+# Private functions
+# ---------------------------------------------------------------------------
+
+def _bitstream_to_symbols(bitstream_list: list, k: int):
+    """Regroupe un tableau de bits par paquets de k. Lève une erreur si le compte n'est pas bon."""
+    if len(bitstream_list) % k != 0:
+        raise ValueError(f"Bitstream length ({len(bitstream_list)}) is not a multiple of k={k}.")
+    
+    symbols = []
+    for i in range(0, len(bitstream_list), k):
+        chunk = bitstream_list[i:i + k]
+        
+        valeur = 0
+        for bit in chunk:
+            valeur = (valeur << 1) | bit
+            
+        symbols.append(valeur)
+        
+    return symbols
+
+# ---------------------------------------------------------------------------
+
 def to_bitstream(text, encoding_dict):
     """Retourne une liste d'entiers (0 et 1)."""
     return [int(bit) for char in text for bit in encoding_dict[char]]
@@ -26,25 +49,6 @@ def from_bitstream(bitstream_array, encoding_dict):
             
     return decoded_text
 
-def _bitstream_to_symbols(bitstream_list: list, k: int):
-    """Regroupe un tableau de bits par paquets de k. Lève une erreur si le compte n'est pas bon."""
-    if len(bitstream_list) % k != 0:
-        raise ValueError(f"Bitstream length ({len(bitstream_list)}) is not a multiple of k={k}.")
-    
-    symbols = []
-    for i in range(0, len(bitstream_list), k):
-        chunk = bitstream_list[i:i + k]
-        
-        # Convertit la liste de bits [1, 0, 1] en entier (ex: 5)
-        valeur = 0
-        for bit in chunk:
-            # On décale vers la gauche et on ajoute le bit actuel
-            valeur = (valeur << 1) | bit
-            
-        symbols.append(valeur)
-        
-    return symbols
-
 def map_to_4qam(bitstream: list[int], d: float = 1.0) -> list[float]:
     """
     Mapping 4-QAM (QPSK).
@@ -58,8 +62,7 @@ def map_to_4qam(bitstream: list[int], d: float = 1.0) -> list[float]:
         for coord in (d if ((s >> 1) & 1) == 0 else -d, d if (s & 1) == 0 else -d)
     ]
 
-def inverse_channel(data, transform_type):
-    # (Gardé tel quel)
+def rotate_signal(data, transform_type):
     data = np.asarray(data, dtype=float)
     pairs = data.reshape(-1, 2)
     a, b = pairs[:, 0], pairs[:, 1]
