@@ -44,7 +44,7 @@ def display_diagnostics(msg, res):
     sep()
     mapping = [
         ("TX (Sent)", res['input']['input_message_modulate']),
-        ("RX (Recv)", res['input']['input_signal'][2:]),
+        ("RX (Recv)", res['output']['output_signal'][2:]),
         ("CX (Corr)", res['output']['output_message_corrected']),
         ("QX (Quant)", res['output']['output_message_quantized'])
     ]
