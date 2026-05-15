@@ -1,30 +1,5 @@
 import numpy as np
 
-
-# ---------------------------------------------------------------------------
-# Convention des registres à décalage
-# ---------------------------------------------------------------------------
-#
-# Dans encode_bits, la fenêtre glissante est construite ainsi :
-#   padded = [0]*(k-1) + message + [0]*(k-1)
-#   window = padded[i : i+k]
-#   → window[0]   = bit le plus ANCIEN  (entré il y a k-1 pas)
-#   → window[k-1] = bit le plus RÉCENT  (entré au pas courant)
-#
-# Dans create_sub_matrice, on représente le registre dans le même ordre :
-#   full_register = current_state_bits[::-1] + [entry_bit]
-#   → full_register[0]   = bit le plus ANCIEN
-#   → full_register[k-1] = entry_bit  (bit le plus RÉCENT)
-#
-# _compute_xor applique alors la convention :
-#   MSB de g → register[0]  (bit le plus ANCIEN)
-#   LSB de g → register[k-1] (bit le plus RÉCENT)
-#
-# C'est la convention polynomiale standard :
-#   g(D) = g_{k-1} + g_{k-2}·D + … + g_0·D^{k-1}
-# ---------------------------------------------------------------------------
-
-
 def _compute_xor(register: list[int], g: int) -> int:
     """
     Sortie d'un générateur polynomial.
@@ -46,7 +21,7 @@ def _compute_xor(register: list[int], g: int) -> int:
 # Encoder
 # ---------------------------------------------------------------------------
 
-def encode_bits(message: list[int], k: int, G: list[int]) -> list[int]:
+def encode(message: list[int], k: int, G: list[int]) -> list[int]:
     """
     Encode un message avec un code convolutif de longueur de contrainte k.
 
@@ -73,7 +48,7 @@ def encode_bits(message: list[int], k: int, G: list[int]) -> list[int]:
 # Trellis
 # ---------------------------------------------------------------------------
 
-def create_sub_matrice(entry_bit: int, k: int, G: list[int]) -> np.ndarray:
+def _create_matrice(entry_bit: int, k: int, G: list[int]) -> np.ndarray:
     """
     Sous-matrice du treillis pour un bit d'entrée donné.
 
@@ -114,15 +89,15 @@ def create_sub_matrice(entry_bit: int, k: int, G: list[int]) -> np.ndarray:
     return matrice
 
 
-def create_treillis(k: int, G: list[int], d: float):
+def _create_treillis(k: int, G: list[int], d: float):
     """
     Construit NS (Next State) et OS (Output Symbols).
 
     NS[s, b]     : état suivant depuis s avec l'entrée b
     OS[s, b, :]  : amplitudes de sortie (±d)
     """
-    matrice0 = create_sub_matrice(0, k, G)
-    matrice1 = create_sub_matrice(1, k, G)
+    matrice0 = _create_matrice(0, k, G)
+    matrice1 = _create_matrice(1, k, G)
 
     n_states     = 2 ** (k - 1)
     state_length = k - 1
@@ -147,7 +122,7 @@ def create_treillis(k: int, G: list[int], d: float):
 # Viterbi soft
 # ---------------------------------------------------------------------------
 
-def soft_viterbi(received_signal: list[list[float]], k: int, G: list[int],
+def decode(received_signal: list[list[float]], k: int, G: list[int],
                  d: float) -> str:
     """
     Décodeur de Viterbi à décision douce (distance euclidienne au carré).
@@ -163,7 +138,7 @@ def soft_viterbi(received_signal: list[list[float]], k: int, G: list[int],
     ------
     Chemin décodé (bits de flush inclus).
     """
-    NS, OS = create_treillis(k, G, d)
+    NS, OS = _create_treillis(k, G, d)
     n_states = 2 ** (k - 1)
 
     n_flush_symbols = k - 1
@@ -239,6 +214,18 @@ def map_to_4qam_custom(bitstream: list[int], d: float = 1.0) -> list[list[float]
         for s in symbols
     ]
 
+def map_to_4qam_custom_2(bitstream: list[int], d: float = 1.0) -> list[float]:
+    """
+    Mapping 4-QAM (QPSK).
+      00 → [+d, +d]   01 → [+d, -d]
+      10 → [-d, +d]   11 → [-d, -d]
+    """
+    symbols = bitstream_to_symbols_list(bitstream, k=2)
+    return [
+        coord
+        for s in symbols
+        for coord in (d if ((s >> 1) & 1) == 0 else -d, d if (s & 1) == 0 else -d)
+    ]
 
 def add_awgn(signal: list[list[float]], snr_db: float) -> list[list[float]]:
     """Ajoute un bruit AWGN (snr_db = Eb/N0 en dB)."""
@@ -261,11 +248,11 @@ def run_test(label: str, msg: list[int], k: int, G: list[int], d: float,
     tag = f"SNR={snr_db} dB" if snr_db is not None else "canal parfait"
     print(f"  k={k}, G={[hex(g) for g in G]}, {tag}")
 
-    encoded  = encode_bits(msg, k, G)
+    encoded  = encode(msg, k, G)
     signal   = map_to_4qam_custom(encoded, d)
     received = add_awgn(signal, snr_db) if snr_db is not None else signal
 
-    decoded_full = soft_viterbi(received, k, G, d)
+    decoded_full = decode(received, k, G, d)
     decoded      = decoded_full[:-(k - 1)] if k > 1 else decoded_full
 
     msg_str = "".join(str(b) for b in msg)

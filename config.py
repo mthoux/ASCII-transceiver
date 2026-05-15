@@ -1,6 +1,5 @@
 # config.py
 D_SPACING = 1.3
-M_ARY = 4
 
 # --- CONFIG TEST ---
 TOTAL_RUNS = 50

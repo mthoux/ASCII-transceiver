@@ -11,8 +11,8 @@ def reconstruct_message(indices: list, alphabet: str):
 
 
 def to_bitstream(text, encoding_dict):
-    """Retourne une chaîne de caractères '0' et '1'."""
-    return "".join([encoding_dict[char] for char in text])
+    """Retourne une liste d'entiers (0 et 1)."""
+    return [int(bit) for char in text for bit in encoding_dict[char]]
 
 def from_bitstream(bitstream_str, encoding_dict):
     """
@@ -33,17 +33,6 @@ def from_bitstream(bitstream_str, encoding_dict):
             current_buffer = "" 
             
     return decoded_text
-
-def bitstream_to_symbols(bitstream_str: str, k: int):
-    """Regroupe par paquets de k. Lève une erreur si le compte n'est pas bon."""
-    if len(bitstream_str) % k != 0:
-        raise ValueError(f"Bitstream length ({len(bitstream_str)}) is not a multiple of k={k}.")
-    
-    symbols = []
-    for i in range(0, len(bitstream_str), k):
-        chunk = bitstream_str[i:i + k]
-        symbols.append(int(chunk, 2))
-    return symbols
 
 def bitstream_to_symbols(bitstream_list: list, k: int):
     """Regroupe un tableau de bits par paquets de k. Lève une erreur si le compte n'est pas bon."""
@@ -68,12 +57,15 @@ def symbols_to_bitstream(symbols: list, k: int):
     return "".join([format(s, 'b').zfill(k) for s in symbols])
 
 # --- MODULATION GÉNÉRIQUE (M=2 à M=64) ---
-def map_to_qam(symbols, m_ary, d=1.0):
+def map_to_qam(data, m_ary, d=1.0):
+
+    data = bitstream_to_symbols(data, 2)
+
     k = int(np.log2(m_ary))
     
     # Cas BPSK (M=2) : 1 bit -> 1 point sur l'axe Réel
     if m_ary == 2:
-        return [d if s == 0 else -d for s in symbols for _ in range(2)] # Ajout d'un 0 imaginaire
+        return [d if s == 0 else -d for s in data for _ in range(2)] # Ajout d'un 0 imaginaire
 
     # Cas non-carrés (M=8, M=32) : Mapping simplifié par défaut
     # Pour faire simple, on traite comme une grille rectangulaire ou on lève une erreur
@@ -82,13 +74,27 @@ def map_to_qam(symbols, m_ary, d=1.0):
 
     m_per_axis = int(np.sqrt(m_ary))
     coords = []
-    for s in symbols:
+    for s in data:
         idx_i = s >> (k // 2)
         idx_q = s & ((1 << (k // 2)) - 1)
         val_i = (2 * idx_i - (m_per_axis - 1)) * d
         val_q = (2 * idx_q - (m_per_axis - 1)) * d
         coords.extend([val_i, val_q])
     return coords
+
+def map_to_4qam_custom(bitstream: list[int], d: float = 1.0) -> list[list[float]]:
+    """
+    Mapping 4-QAM (QPSK).
+
+      00 → [+d, +d]   01 → [+d, -d]
+      10 → [-d, +d]   11 → [-d, -d]
+    """
+    symbols = bitstream_to_symbols(bitstream, k=2)
+    return [
+        [d if ((s >> 1) & 1) == 0 else -d,
+         d if (s & 1)         == 0 else -d]
+        for s in symbols
+    ]
 
 def inverse_channel(data, transform_type):
     # (Gardé tel quel)
