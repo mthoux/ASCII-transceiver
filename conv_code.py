@@ -1,7 +1,30 @@
 import numpy as np
+import utils
+
+def _compute_xor(table, g):
+    k = len(table)
+
+    result = 0
+    for i in range(k):
+        if (g >> i) & 1:
+            result ^= table[k - 1 - i]
+
+    return result
+
+def encode_bits(message, k, G):
+
+    string = [0] * (k - 1) + message + [0] * (k - 1)
+    result = []
+
+    for i in range(len(message) + k - 1):
+        window = string[i:i+k]
+
+        for g in G:
+            result.append(_compute_xor(window, g))
+
+    return result
 
 def create_sub_matrice(entry_bit, k, G):
-
     n_states = 2**(k-1)
     state_length = k-1
     entry_length = 2*state_length + len(G) + 1
@@ -20,17 +43,12 @@ def create_sub_matrice(entry_bit, k, G):
         next_state = [entry_bit] + current_state_bits[:-1]
         matrice[i, state_length+1 : 2*state_length+1] = next_state
 
-        # Compute codewords
+        # Le registre complet (qui sert de table/fenêtre)
         full_register = [entry_bit] + current_state_bits
         
+        # On utilise directement la fonction _compute_xor
         for j in range(len(G)):
-            res_xor = 0
-            for bit_pos in range(k):
-                # Check if bit at bit_pos in G is 1
-                if (G[j] >> (k - 1 - bit_pos)) & 1:
-                    res_xor ^= full_register[bit_pos]
-            
-            matrice[i, 2*state_length + 1 + j] = res_xor
+            matrice[i, 2*state_length + 1 + j] = _compute_xor(full_register, G[j])
 
     return matrice
 
@@ -65,106 +83,67 @@ def create_treillis(k, G, d):
 
 def soft_viterbi(received_signal, k, G, d):
     NS, OS = create_treillis(k, G, d)
-    
     n_states = 2**(k-1)
     n_flush_bits = k-1
 
-    curr_list = [None]* n_states
-    next_list = [None]* n_states
+    curr_list = [None] * n_states
+    curr_list[0] = {"cost": 0, "path": ""}
 
-    curr_list[0] = {"cost": 0, "path": []}
-
-    for idx,(i,j) in enumerate(received_signal):
-
-        # Create next_list
-        for curr in curr_list:
+    for idx, received_symbols in enumerate(received_signal):
+        next_list = [None] * n_states
+        
+        for s in range(n_states):
+            if curr_list[s] is None:
+                continue
             
-            # Get next state for bit 0
-            next = NS[curr, 0]
+            # Try input 0 and 1 but only 0 when flushing
+            possible_inputs = [0] if idx >= len(received_signal) - n_flush_bits else [0, 1]
             
-            # Compute cost to that path
-            cost = curr["cost"] + (i - OS[next, 0][0])^2 + (j - OS[next, 0][1])
-
-            # Create path 
-            path = curr[path] + f"{next:0{k-1}b}"
-
-            # Compare
-            if curr_list[next] is None: next_list[next] = {"cost": cost, "path": path}
-            elif curr_list[next]["cost"] > cost: next_list[next] = {"cost": cost, "path": path}
-            else: next_list[next] = curr_list[next]
-
-            if(idx < len(received_signal) - n_flush_bits):
-
-                # Get next state for bit 1
-                next = NS[curr, 1]
+            for bit in possible_inputs:
+                next_state = NS[s, bit]
+                expected_output = OS[s, bit]
                 
-                # Compute cost to that path
-                cost = curr["cost"] + (i - OS[next, 1][0])**2 + (j - OS[next, 1][1])**2
-
-                # Create path 
-                path = curr["path"] + f"{next:0{k-1}b}"
-
-                # Compare
-                if curr_list[next] is None: next_list[next] = {"cost": cost, "path": path}
-                elif curr_list[next]["cost"] > cost: next_list[next] = {"cost": cost, "path": path}
-                else: next_list[next] = curr_list[next]
-
-        # Update list
+                # Euclidean distance: sum of (received - expected)^2
+                branch_cost = sum((received_symbols[c] - expected_output[c])**2 
+                                  for c in range(len(G)))
+                
+                new_cost = curr_list[s]["cost"] + branch_cost
+                new_path = curr_list[s]["path"] + str(bit)
+                
+                # Selection (Add-Compare-Select)
+                if next_list[next_state] is None or new_cost < next_list[next_state]["cost"]:
+                    next_list[next_state] = {"cost": new_cost, "path": new_path}
+        
         curr_list = next_list
 
-    # Output path with state 0
+    # Return the path ending in state 0 (standard for terminated codes)
+    # If state 0 is unreachable for some reason, fallback to the minimum cost state
+    if curr_list[0] is not None:
+        return curr_list[0]["path"]
+    
+    # Fallback to absolute minimum cost
+    valid_paths = [item for item in curr_list if item is not None]
+    return min(valid_paths, key=lambda x: x["cost"])["path"]
 
-    return curr_list[0]["path"]
 
 
 
 
+# --- Test rapide ---
+G_test = [5, 7] # G = [7, 5]
+K = 3
+d = 1 
+msg = [1, 1, 1, 0, 1, 1 ,1, 0, 0, 0, 1, 1, 1, 0, 1, 1 ,1, 0, 0, 0]
+signal_genere = encode_bits(msg, K, G_test)
+print(signal_genere)
 
+signal = utils.map_to_4qam_custom(signal_genere, d)
 
-def soft_viterbi(symbols, k):
-    # 1. Ton treillis (Prends bien soin de vérifier les sorties selon G)
-    treillis = {
-        "00": {0: ("00", ( 2,  2)), 1: ("10", (-2, 2))},
-        "10": {0: ("01", (-2, -2)), 1: ("11", ( 2, -2))},
-        "01": {0: ("00", ( 2,  2)), 1: ("10", (-2, 2))}, 
-        "11": {0: ("01", (-2, -2)), 1: ("11", ( 2, -2))},
-    }
+print(signal)
 
-    # 2. Initialisation : { "état": (distance_cumulée, "chemin_de_bits") }
-    # On commence forcément à "00" avec une distance de 0
-    states = {"00": (0, "")}
+resultat = soft_viterbi(signal, K, G_test, d)
+#rm flush bits :
+resultat = resultat[:-(K-1)]
 
-    # 3. Boucle sur chaque symbole reçu
-    for i, sym_r in enumerate(symbols):
-        temp = {} # Dictionnaire pour merger les chemins à cette itération
-        
-        # On gère le flush : si on est à la fin, on ne teste que l'entrée 0
-        is_flush = i >= (len(symbols) - (k-1))
-        inputs = [0] if is_flush else [0, 1]
-
-        # 4. Pour chaque état "survivant" de l'étape précédente
-        for state_actuel, (dist_cumulee, path) in states.items():
-            for bit_in in inputs:
-                # Récupération de la transition
-                next_state, sym_t = treillis[state_actuel][bit_in]
-                
-                # Calcul de la distance euclidienne (Maths)
-                dist_b = (sym_r[0] - sym_t[0])**2 + (sym_r[1] - sym_t[1])**2
-                total_dist = dist_cumulee + dist_b
-                new_path = path + str(bit_in)
-
-                # 5. LE MERGE (Add-Compare-Select)
-                # Si l'état de destination n'a pas encore de chemin OU si le nouveau est meilleur
-                if next_state not in temp or total_dist < temp[next_state][0]:
-                    temp[next_state] = (total_dist, new_path)
-        
-        # On remplace les anciens états par les nouveaux survivants
-        states = temp
-
-    # 6. Résultat final : le chemin associé à l'état "00" après le flush
-    return states["00"][1]
-
-# Exemple d'utilisation
-points_recus = [(1.5, 1.7), (-1.8, 1.9), (-2.1, -2.0), (1.9, 2.1)]
-resultat = soft_viterbi(points_recus, 3)
-print(f"Message décodé : {resultat}")
+print(f"Message envoyé: {''.join(str(b) for b in msg)}")
+print(f"Message décodé: {resultat}")
