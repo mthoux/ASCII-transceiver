@@ -6,18 +6,6 @@ from src.utils import *
 import src.tools.visualization as visualization
 import src.convolutional_code as convolutional_code
 
-def pilot_analysis(signal):
-
-    pilot_re = np.mean(signal[0::2])
-    pilot_im = np.mean(signal[1::2])
-    
-    if   pilot_re >= 0 and pilot_im >= 0:   t_id = 1
-    elif pilot_re <  0 and pilot_im >= 0:   t_id = 2
-    elif pilot_re <  0 and pilot_im <  0:   t_id = 3
-    else:                                   t_id = 4
-
-    return t_id, (pilot_re, pilot_im)
-
 def transceiver(input_text, encoding_dict, d, n_pilot, K, G):
 
     # --- TRANSMITTER ---

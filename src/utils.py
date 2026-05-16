@@ -82,3 +82,14 @@ def rotate_signal(data, transform_type):
     elif transform_type == 4: rx = np.stack([-b, a], axis=1)
     else: raise ValueError("Invalid transformation index.")
     return rx.flatten()
+
+def pilot_analysis(signal):
+    pilot_re = np.mean(signal[0::2])
+    pilot_im = np.mean(signal[1::2])
+    
+    if pilot_re >= 0:
+        t_id = 1 if pilot_im >= 0 else 4
+    else:
+        t_id = 2 if pilot_im >= 0 else 3
+        
+    return t_id, (pilot_re, pilot_im)

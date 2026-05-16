@@ -67,6 +67,7 @@ By leveraging this extra "soft" information, our pipeline achieves an impressive
 ## 📈 Going Further
 
 * **Energy Optimization:** A bonus was offered to the team that achieved the absolute minimum energy consumption. Due to a packed semester workload, we focused on meeting the baseline constraints rather than optimizing for the absolute minimum, but calculating the theoretical Shannon limit for minimal achievable energy remains a fascinating extension!
+* **Explore Puncturing** Puncturing is a technique to reduce the amount of bit sent over the channel. After the channel coding we deliberatly remove some bits and add put new (false) bits after receiving the signal at the same location.
 * **Security Track:** As a future improvement, a cryptographic layer could easily be stacked on top of the source coding phase.
 
 ---
