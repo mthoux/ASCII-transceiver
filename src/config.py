@@ -34,18 +34,19 @@ ENCODING = classic_encoding
 # Physical & Modulation Parameters
 # ===========================================================================
 
-D_SPACING       = 1.1
+D_SPACING       = 1.37
 N_PILOT         = 1
 BOOST_FACTOR    = 2.2
-PUNCTURED_BIT   = 24
+PUNCTURED_BIT   = 6
+
 
 
 # ===========================================================================
-# Convolutional Code Configuration  
+# Convolutional Code Configuration
 # ===========================================================================
 
-K=22
-G = [0o5536415, 0o7234563]  # Standard rate 1/2 constraint 7 polynomials
+K = 11
+G = [0o1533, 0o1751]  # Standard rate 1/2 constraint 7 polynomials
 
 # ===========================================================================
 # System Constraints
@@ -59,7 +60,7 @@ MAX_LENGTH = 500
 # Stress Test Configuration
 # ===========================================================================
 
-TOTAL_RUNS = 50
+TOTAL_RUNS = 200
 MSG_LEN    = 40
 
 # Add here the strings you want to put in test
@@ -77,7 +78,7 @@ TEST_SET_2 = [
 ]
 
 
-# MMMMH, not sure yet
+# MMMMH, not sure yer
 N0 = 1
 pwr = MAX_ENERGY/MAX_LENGTH
 snr = pwr/N0

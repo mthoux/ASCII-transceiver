@@ -52,7 +52,8 @@ def transceiver(input_text, encoding_dict, d, n_pilot, K, G, boost_factor, punct
             "corrected": output_corrected,
             "bits": output_bits,
             "pilot": output_pilot,
-            "text": output_text
+            "text": output_text,
+            "depuncture": output_depuncture
         },
         "stats": {
             "energy": energy,
