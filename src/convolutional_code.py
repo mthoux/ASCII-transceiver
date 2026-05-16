@@ -108,61 +108,70 @@ def encode(message: list[int], K: int, G: list[int]) -> list[int]:
 # Decoder (Boosté par Numba)
 # ---------------------------------------------------------------------------
 
-@njit
-def _decode_fast(received_signal: np.ndarray, K: int, G: np.ndarray, d: float) -> np.ndarray:
-    """Logique interne pure NumPy compilée par Numba."""
+@njit(parallel=True, fastmath=True, cache=True)
+def _decode_fast_optimized(received_signal, K, G, d):
     NS, OS = _create_treillis(K, G, d)
     n_states = 2 ** (K - 1)
 
-    n_flush_symbols = K - 1
-    len_G           = len(G)
-    total_symbols   = len(received_signal) // len_G
+    len_G = len(G)
+    T = len(received_signal) // len_G
+    n_flush = K - 1
 
-    # Tableaux NumPy fixes : très rapide pour la mémoire
-    curr_costs = np.full(n_states, np.inf, dtype=np.float64)
-    curr_costs[0] = 0.0
-    
-    # Historique des chemins : matrice de taille (nb_états, nb_étapes)
-    curr_paths = np.zeros((n_states, total_symbols), dtype=np.int32)
+    # coûts
+    curr_cost = np.full(n_states, 1e18)
+    next_cost = np.full(n_states, 1e18)
+    curr_cost[0] = 0.0
 
-    for idx in range(total_symbols):
-        start_idx = idx * len_G
-        received_symbols = received_signal[start_idx : start_idx + len_G]
+    # backpointers (ULTRA important)
+    prev_state = np.zeros((T, n_states), dtype=np.int32)
+    prev_bit   = np.zeros((T, n_states), dtype=np.int8)
 
-        next_costs = np.full(n_states, np.inf, dtype=np.float64)
-        next_paths = np.zeros((n_states, total_symbols), dtype=np.int32)
-        
-        is_flushing = idx >= total_symbols - n_flush_symbols
-        
+    for t in range(T):
+
+        start = t * len_G
+
+        # reset
+        for i in range(n_states):
+            next_cost[i] = 1e18
+
+        is_flush = t >= T - n_flush
+
         for s in range(n_states):
-            if curr_costs[s] == np.inf:
+            cst = curr_cost[s]
+            if cst == 1e18:
                 continue
-                
-            # Gestion du flush
-            n_inputs = 1 if is_flushing else 2
-            for bit in range(n_inputs):
-                next_state      = NS[s, bit]
-                expected_output = OS[s, bit]
 
-                # Calcul du coût de branche
-                branch_cost = 0.0
-                for c in range(len_G):
-                    branch_cost += (received_symbols[c] - expected_output[c]) ** 2
-                    
-                new_cost = curr_costs[s] + branch_cost
+            n_inputs = 1 if is_flush else 2
 
-                if new_cost < next_costs[next_state]:
-                    next_costs[next_state] = new_cost
-                    # Copie et mise à jour du chemin parcouru
-                    next_paths[next_state, :] = curr_paths[s, :]
-                    next_paths[next_state, idx] = bit
+            for b in range(n_inputs):
+                ns = NS[s, b]
 
-        curr_costs = next_costs
-        curr_paths = next_paths
+                # coût
+                cost = 0.0
+                for k in range(len_G):
+                    diff = received_signal[start + k] - OS[s, b, k]
+                    cost += diff * diff
 
-    # On extrait le meilleur chemin final (celui qui termine à l'état 0 après le flush)
-    best_path = curr_paths[0, :]
-    return best_path[:-(K - 1)] if K > 1 else best_path
+                new_cost = cst + cost
+
+                if new_cost < next_cost[ns]:
+                    next_cost[ns] = new_cost
+                    prev_state[t, ns] = s
+                    prev_bit[t, ns] = b
+
+        # swap
+        for i in range(n_states):
+            curr_cost[i] = next_cost[i]
+
+    # backtracking
+    best = np.argmin(curr_cost)
+    path = np.zeros(T, dtype=np.int8)
+
+    for t in range(T - 1, -1, -1):
+        path[t] = prev_bit[t, best]
+        best = prev_state[t, best]
+
+    return path[:-(K - 1)] if K > 1 else path
 
 
 def decode(received_signal: list, K: int, G: list[int], d: float) -> list[int]:
@@ -173,7 +182,7 @@ def decode(received_signal: list, K: int, G: list[int], d: float) -> list[int]:
     signal_arr = np.array(received_signal, dtype=np.float64)
     g_arr = np.array(G, dtype=np.int32)
     
-    res_array = _decode_fast(signal_arr, K, g_arr, d)
+    res_array = _decode_fast_optimized(signal_arr, K, g_arr, d)
     
     # Renvoie une liste de int standards pour rester compatible avec ton main.py
     return [int(b) for b in res_array]
