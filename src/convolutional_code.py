@@ -5,13 +5,11 @@ import numpy as np
 # ---------------------------------------------------------------------------
 
 def _compute_xor(register: list[int], g: int) -> int:
-    """
-    Sortie d'un générateur polynomial.
+    """XORs register elements masked by bits of g.
 
-    register[0]   = bit le plus ANCIEN
-    register[K-1] = bit le plus RÉCENT (entrée courante)
-    MSB de g      → register[0]
-    LSB de g      → register[K-1]
+    Args:
+        register: List of values.
+        g: Bitmask matching register length.
     """
     K = len(register)
     result = 0
@@ -21,14 +19,12 @@ def _compute_xor(register: list[int], g: int) -> int:
     return result
 
 def _create_matrice(entry_bit: int, K: int, G: list[int]) -> np.ndarray:
-    """
-    Sous-matrice du treillis pour un bit d'entrée donné.
+    """Trellis sub-matrix for a given input bit.
 
-    Colonnes :
-      0                 : bit d'entrée
-      1 .. K-1          : état courant  (MSB = bit entré le plus récemment parmi les anciens)
-      K .. 2K-2         : état suivant
-      2K-1 .. 2K+|G|-2  : bits de sortie
+    Args:
+        entry_bit: Current input bit.
+        K: Memory length.
+        G: List of generator polynomials.
     """
     n_states     = 2 ** (K - 1)
     state_length = K - 1
@@ -39,20 +35,13 @@ def _create_matrice(entry_bit: int, K: int, G: list[int]) -> np.ndarray:
     for i in range(n_states):
         matrice[i, 0] = entry_bit
 
-        # État courant : i en binaire MSB en premier
-        # current_state_bits[0] = bit entré le plus récemment (parmi les anciens)
-        # current_state_bits[K-2] = bit le plus ancien
         current_state_bits = [(i >> (state_length - 1 - j)) & 1
                               for j in range(state_length)]
         matrice[i, 1: state_length + 1] = current_state_bits
 
-        # État suivant : décalage + insertion de entry_bit en MSB
         next_state_bits = [entry_bit] + current_state_bits[:-1]
         matrice[i, state_length + 1: 2 * state_length + 1] = next_state_bits
 
-        # Registre dans l'ordre encode_bits (plus_ancien → plus_récent) :
-        #   current_state_bits inversé donne [plus_ancien, ..., plus_récent_parmi_anciens]
-        #   puis on ajoute entry_bit en dernière position (le plus récent de tous)
         full_register = current_state_bits[::-1] + [entry_bit]
 
         for j, g in enumerate(G):
@@ -62,11 +51,16 @@ def _create_matrice(entry_bit: int, K: int, G: list[int]) -> np.ndarray:
 
 
 def _create_treillis(K: int, G: list[int], d: float):
-    """
-    Construit NS (Next State) et OS (Output Symbols).
+    """Builds Next State (NS) and Output Symbols (OS) tables.
 
-    NS[s, b]     : état suivant depuis s avec l'entrée b
-    OS[s, b, :]  : amplitudes de sortie (±d)
+    Args:
+        K: Memory length.
+        G: List of generator polynomials.
+        d: Constellation amplitude.
+
+    Returns:
+        NS[s, b]    : Next state from state s with input bit b.
+        OS[s, b, :] : Modulated output amplitudes (±d) for state s and input b.
     """
     matrice0 = _create_matrice(0, K, G)
     matrice1 = _create_matrice(1, K, G)
@@ -95,18 +89,15 @@ def _create_treillis(K: int, G: list[int], d: float):
 # ---------------------------------------------------------------------------
 
 def encode(message: list[int], K: int, G: list[int]) -> list[int]:
-    """
-    Encode un message avec un code convolutif de longueur de contrainte K.
+    """Encodes a message using a convolutional code (K,G).
 
-    Paramètres
-    ----------
-    message : bits d'information (0 ou 1)
-    K       : longueur de contrainte
-    G       : polynômes générateurs (doivent tenir sur K bits, i.e. g < 2^K)
+    Args:
+        message: Information bits (0 or 1).
+        K: Memory length.
+        G: Generator polynomials (g < 2^K).
 
-    Retour
-    ------
-    (len(message) + K-1) * len(G) bits codés (flush inclus).
+    Returns:
+        Coded bits including the flush sequence.
     """
     padded = [0] * (K - 1) + message + [0] * (K - 1)
     result = []
@@ -122,19 +113,16 @@ def encode(message: list[int], K: int, G: list[int]) -> list[int]:
 
 def decode(received_signal: list[list[float]], K: int, G: list[int],
                  d: float) -> str:
-    """
-    Décodeur de Viterbi à décision douce (distance euclidienne au carré).
+    """Soft-decision Viterbi decoder using squared Euclidean distance.
 
-    Paramètres
-    ----------
-    received_signal : liste des symbols recus
-    K               : longueur de contrainte
-    G               : polynômes générateurs
-    d               : amplitude de la constellation
+    Args:
+        received_signal: Received symbols.
+        K: Memory length.
+        G: Generator polynomials.
+        d: Constellation amplitude.
 
-    Retour
-    ------
-    Chemin décodé (bits de flush inclus).
+    Returns:
+        Decoded bit sequence (flush bits removed).
     """
     NS, OS = _create_treillis(K, G, d)
     n_states = 2 ** (K - 1)

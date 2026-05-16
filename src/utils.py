@@ -5,7 +5,12 @@ import numpy as np
 # ---------------------------------------------------------------------------
 
 def _bitstream_to_symbols(bitstream_list: list, k: int):
-    """Regroupe un tableau de bits par paquets de k. Lève une erreur si le compte n'est pas bon."""
+    """Groups bits into packets of length k.
+
+    Args:
+        bitstream_list: List of input bits.
+        k: Bits per symbol.
+    """
     if len(bitstream_list) % k != 0:
         raise ValueError(f"Bitstream length ({len(bitstream_list)}) is not a multiple of k={k}.")
     
@@ -24,23 +29,17 @@ def _bitstream_to_symbols(bitstream_list: list, k: int):
 # ---------------------------------------------------------------------------
 
 def to_bitstream(text, encoding_dict):
-    """Retourne une liste d'entiers (0 et 1)."""
+    """Converts text into a list of bits using a dictionary."""
     return [int(bit) for char in text for bit in encoding_dict[char]]
 
 def from_bitstream(bitstream_array, encoding_dict):
-    """
-    Décode un TABLEAU de bits numériques (ex: [1, 0, 1, 1]) 
-    en texte brut via un dictionnaire variable.
-    """
-    # Inversion du dictionnaire pour la recherche (on garde les clés en string '0101...')
+    """Decodes a bit array into text using a dictionary."""
     reverse_dict = {v: k for k, v in encoding_dict.items()}
     
     decoded_text = ""
     current_buffer = ""
     
-    # On parcourt directement le tableau d'entiers
     for bit in bitstream_array:
-        # On convertit le int (0 ou 1) en str ('0' ou '1') pour le buffer
         current_buffer += str(bit) 
         
         if current_buffer in reverse_dict:
@@ -50,10 +49,15 @@ def from_bitstream(bitstream_array, encoding_dict):
     return decoded_text
 
 def map_to_4qam(bitstream: list[int], d: float = 1.0) -> list[float]:
-    """
+    """Maps a bitstream into 4-QAM (QPSK) constellation coordinates.
+
+    Args:
+        bitstream: List of input bits.
+        d: Constellation scaling factor.
+
     Mapping 4-QAM (QPSK).
       00 → [+d, +d]   01 → [+d, -d]
-      10 → [-d, +d]   11 → [-d, -d]
+      10 → [-d, +d]   11
     """
     symbols = _bitstream_to_symbols(bitstream, k=2)
     return [
@@ -63,6 +67,12 @@ def map_to_4qam(bitstream: list[int], d: float = 1.0) -> list[float]:
     ]
 
 def rotate_signal(data, transform_type):
+    """Rotates 2D constellation points by increments of 90 degrees.
+
+    Args:
+        data: Flattened array of IQ coordinates.
+        transform_type: Rotation index (1: 0°, 2: -90°, 3: 180°, 4: 90°).
+    """
     data = np.asarray(data, dtype=float)
     pairs = data.reshape(-1, 2)
     a, b = pairs[:, 0], pairs[:, 1]

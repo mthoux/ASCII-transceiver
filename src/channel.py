@@ -1,6 +1,14 @@
 import numpy as np
 
 def channel(x):
+    """Mocks a channel by applying a random 90-degree phase rotation and adding AWGN to the signal.
+
+    Args:
+        x: Flattened array of IQ coordinates (must have an even length).
+
+    Returns:
+        The rotated and noisy flattened signal array.
+    """
     x = np.asarray(x, dtype=float)
 
     if x.size % 2 != 0:
