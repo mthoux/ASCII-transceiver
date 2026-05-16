@@ -85,4 +85,4 @@ if __name__ == "__main__":
                       punctured_bit=config.PUNCTURED_BIT)
 
     visualization.display_diagnostics(res)
-    #visualization.plot_constellations(res)
+    visualization.plot_constellations(res)
