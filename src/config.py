@@ -34,9 +34,9 @@ ENCODING = classic_encoding
 # Physical & Modulation Parameters
 # ===========================================================================
 
-D_SPACING       = 1.13
+D_SPACING       = 1.1
 N_PILOT         = 1
-BOOST_FACTOR    = 3
+BOOST_FACTOR    = 2.2
 PUNCTURED_BIT   = 24
 
 

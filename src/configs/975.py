@@ -35,8 +35,8 @@ ENCODING = classic_encoding
 # ===========================================================================
 
 D_SPACING       = 1.37
-N_PILOT         = 3
-BOOST_FACTOR    = 2.4
+N_PILOT         = 1
+BOOST_FACTOR    = 2.2
 PUNCTURED_BIT   = 6
 
 
@@ -60,7 +60,7 @@ MAX_LENGTH = 500
 # Stress Test Configuration
 # ===========================================================================
 
-TOTAL_RUNS = 50
+TOTAL_RUNS = 200
 MSG_LEN    = 40
 
 # Add here the strings you want to put in test

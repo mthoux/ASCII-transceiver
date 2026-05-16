@@ -1,4 +1,5 @@
 import random
+import time  # <--- Utilisé pour le chronométrage individuel
 import numpy as np
 import src.config as config
 from src.main import transceiver
@@ -8,6 +9,7 @@ GREEN = "\033[92m"
 RED = "\033[91m"
 RESET = "\033[0m"
 BOLD = "\033[1m"
+CYAN = "\033[96m" # Nouvelle couleur pour faire ressortir le chrono par run
 
 def generate_random_msg() -> str:
     """Generates a random string based on the allowed config alphabet and target length."""
@@ -17,17 +19,18 @@ def run_stress_test(total_runs: int = config.TOTAL_RUNS, verbose_runs: int = 15)
     """Executes a pipeline verification suite with character-level color diagnostics."""
     
     # --- DISPLAY HEADERS ---
-    print(f"\n{BOLD}{'='*90}")
-    print(f"--- STRESS TEST CONFIGURATION ---".center(90))
-    print(f"{'='*90}{RESET}")
+    print(f"\n{BOLD}{'='*95}")
+    print(f"--- STRESS TEST CONFIGURATION ---".center(95))
+    print(f"{'='*95}{RESET}")
     print(f"Modulation : 4-QAM (QPSK)")
     print(f"Distance d : {config.D_SPACING}")
     print(f"Thresholds : Energy <= {config.MAX_ENERGY} | Length <= {config.MAX_LENGTH}")
     print(f"Runs       : {total_runs} messages (Showing first {verbose_runs} traces)")
     
-    print(f"\n{'='*90}")
-    print(f"{'#':<4} | {'Data Trace (Original vs Decoded)':<42} | {'Energy':<8} | {'Status & Root Cause'}")
-    print("-" * 90)
+    print(f"\n{'='*95}")
+    # En-tête mis à jour pour inclure la colonne de temps par itération
+    print(f"{'#':<4} | {'Data Trace (Original vs Decoded)':<42} | {'Energy':<8} | {'Time':<10} | {'Status & Root Cause'}")
+    print("-" * 95)
 
     # Prepare complete test dataset
     test_set = list(config.TEST_SET)
@@ -45,7 +48,14 @@ def run_stress_test(total_runs: int = config.TOTAL_RUNS, verbose_runs: int = 15)
     all_eb_n0_db = []
     max_signal_len = 0
 
+    # --- VARIABLES DE CHRONOMÉTRAGE ACCUMULÉ ---
+    t_total_transceiver = 0.0
+    t_total_printing = 0.0
+
     for i, msg in enumerate(test_set):
+        
+        # 1. Chronométrage de la fonction globale transceiver pour CETTE itération
+        t_start_trans = time.perf_counter()
         res = transceiver(
             input_text=msg, 
             encoding_dict=config.ENCODING, 
@@ -56,7 +66,10 @@ def run_stress_test(total_runs: int = config.TOTAL_RUNS, verbose_runs: int = 15)
             boost_factor=config.BOOST_FACTOR,
             punctured_bit=config.PUNCTURED_BIT
         )
+        t_run_duration = time.perf_counter() - t_start_trans # Durée brute de l'itération
+        t_total_transceiver += t_run_duration
         
+        # Extraction des données
         decoded         = res['output']['text']
         energy          = res['stats']['energy']
         signal_len      = len(res['input']['signal'])
@@ -97,7 +110,8 @@ def run_stress_test(total_runs: int = config.TOTAL_RUNS, verbose_runs: int = 15)
         if eb > 0:
             all_eb_n0_db.append(10 * np.log10(eb / n0))
         
-        # --- VERBOSE TRACE PRINTING ---
+        # 2. Chronométrage de la partie affichage (Traces verbeuses)
+        t_start_print = time.perf_counter()
         if i < verbose_runs:
             status = f"{GREEN}OK{RESET}" if run_success else f"{RED}FAIL{RESET}"
             
@@ -117,7 +131,6 @@ def run_stress_test(total_runs: int = config.TOTAL_RUNS, verbose_runs: int = 15)
             colored_decoded_parts = []
             max_len = max(len(msg), len(decoded))
             
-            # On padde avec des espaces pour éviter les out-of-bounds si les longueurs diffèrent
             padded_msg = msg.ljust(max_len)
             padded_dec = decoded.ljust(max_len)
             
@@ -128,18 +141,21 @@ def run_stress_test(total_runs: int = config.TOTAL_RUNS, verbose_runs: int = 15)
                 if c_in == c_out:
                     colored_decoded_parts.append(f"{GREEN}{c_out}{RESET}")
                 else:
-                    # Caractère faux ou absent (si padding d'espace visible)
                     display_char = c_out if c_out != ' ' else '_' 
                     colored_decoded_parts.append(f"{RED}{BOLD}{display_char}{RESET}")
             
             colored_decoded_str = "".join(colored_decoded_parts)
             
-            # Print ajusté pour garder un alignement parfait à l'écran
-            print(f"{i+1:<4} | In : {msg:<35} | {energy:>8.1f} | {status}{reason_str}")
-            print(f"     | Out: {colored_decoded_str:<35} | Rot: Real {actual_rot} / Est {estimated_rot}")
-            print("-" * 90)
+            # Formatage du temps de ce run précis en millisecondes
+            run_time_ms_str = f"{t_run_duration * 1000:.2f} ms"
+            
+            # Affichage mis à jour : Injection de la métrique temporelle au milieu de la table
+            print(f"{i+1:<4} | In : {msg:<35} | {energy:>8.1f} | {CYAN}{run_time_ms_str:>10}{RESET} | {status}{reason_str}")
+            print(f"     | Out: {colored_decoded_str:<35} |            |            | Rot: Real {actual_rot} / Est {estimated_rot}")
+            print("-" * 95)
         elif i == verbose_runs:
             print("...")
+        t_total_printing += (time.perf_counter() - t_start_print)
 
     # --- FINAL AGGREGATE STATS ---
     accuracy = (success_count / total_runs) * 100
@@ -170,7 +186,13 @@ def run_stress_test(total_runs: int = config.TOTAL_RUNS, verbose_runs: int = 15)
         print(f"\n{GREEN}{BOLD}SYSTEM VALIDATED ✅{RESET}")
     else:
         print(f"\n{RED}{BOLD}SYSTEM UNSTABLE ❌{RESET}")
-    print(f"{BOLD}{'='*90}{RESET}\n")
+        
+    # --- 📊 AFFICHAGE DU RAPPORT DE PERFORMANCES HP ---
+    print(f"\n{BOLD}--- PROFILE DE PERFORMANCE MATÉRIELLE ---{RESET}")
+    print(f"Temps de calcul Radio total (`transceiver`) : {t_total_transceiver:.4f} secondes")
+    print(f"Temps moyen par message (`transceiver`)     : {(t_total_transceiver/total_runs)*1000:.2f} ms")
+    print(f"Temps gâché dans l'affichage Terminal       : {t_total_printing:.4f} secondes")
+    print(f"{BOLD}{'='*95}{RESET}\n")
 
 if __name__ == "__main__":
     run_stress_test()
