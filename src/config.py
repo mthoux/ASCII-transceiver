@@ -34,16 +34,16 @@ ENCODING = classic_encoding
 # Physical & Modulation Parameters
 # ===========================================================================
 
-D_SPACING = 1.55
-N_PILOT   = 3
+D_SPACING = 1.27
+N_PILOT   = 2
 
 
 # ===========================================================================
 # Convolutional Code Configuration
 # ===========================================================================
 
-K = 7
-G = [0o171, 0o133]  # Standard rate 1/2 constraint 7 polynomials
+K = 9
+G = [0o561, 0o753]  # Standard rate 1/2 constraint 7 polynomials
 
 
 # ===========================================================================

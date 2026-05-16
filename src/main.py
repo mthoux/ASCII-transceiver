@@ -10,7 +10,8 @@ def transceiver(input_text, encoding_dict, d, n_pilot, K, G):
 
     # --- TRANSMITTER ---
     # Construct signal, start with pilot
-    input_pilot         = [+d, +d] * n_pilot
+    boost_factor = 1.5 
+    input_pilot = [+d * boost_factor, +d * boost_factor] * n_pilot
     input_bits          = to_bitstream(input_text, encoding_dict)               # Source coding
     input_encoded       = convolutional_code.encode(input_bits, K, G)           # Channel coding
     input_modulate      = map_to_4qam(input_encoded, d)                         # Modulation
@@ -72,4 +73,4 @@ if __name__ == "__main__":
                       G=config.G)
 
     visualization.display_diagnostics(res)
-    visualization.plot_constellations(res)
+    #visualization.plot_constellations(res)

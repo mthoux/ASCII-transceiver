@@ -83,13 +83,27 @@ def rotate_signal(data, transform_type):
     else: raise ValueError("Invalid transformation index.")
     return rx.flatten()
 
-def pilot_analysis(signal):
+def pilot_analysis(signal, d=1.2):  # Passe la valeur de d en paramètre (ou récupère-la de ta config)
+    # 1. Calcul de la moyenne des pilotes reçus (ton code actuel, très bien)
     pilot_re = np.mean(signal[0::2])
     pilot_im = np.mean(signal[1::2])
     
-    if pilot_re >= 0:
-        t_id = 1 if pilot_im >= 0 else 4
-    else:
-        t_id = 2 if pilot_im >= 0 else 3
+    # Points théoriques attendus pour chaque t_id (les 4 rotations possibles de [+d, +d])
+    # À adapter selon la logique exacte de tes rotations dans `rotate_signal`
+    scenarios = {
+        1: (+d, +d),   # Pas de rotation (ou rotation 0°)
+        2: (-d, +d),   # Rotation 90°
+        3: (-d, -d),   # Rotation 180°
+        4: (+d, -d)    # Rotation 270°
+    }
+    
+    # 2. On calcule la distance euclidienne au carré pour chaque scénario
+    distances = {}
+    for t_id, (target_re, target_im) in scenarios.items():
+        dist = (pilot_re - target_re)**2 + (pilot_im - target_im)**2
+        distances[t_id] = dist
         
-    return t_id, (pilot_re, pilot_im)
+    # 3. Le meilleur t_id est celui qui minimise la distance
+    best_t_id = min(distances, key=distances.get)
+    
+    return best_t_id, (pilot_re, pilot_im)
