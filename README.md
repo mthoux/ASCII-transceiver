@@ -80,5 +80,14 @@ If you want to explore the project we highly recommend using the visualization. 
 The mathematical derivations and theoretical exercises behind this implementation can be found in our Overleaf document:  
 🔗 [View Theory Document](https://www.overleaf.com/project/6a00a5d3ddacfe8cdca0dc5a)
 
+---
+
+## Authors
+* **[@mthoux](https://github.com/mthoux)** — Transceiver and theory
+* **[@Romain-du-25](https://github.com/Romain-du-25)** — Theory
+* **[@DrMoebius1](https://github.com/DrMoebius1)** — Theory
+
+---
+
 ## 📄 License
 This project is licensed under the **MIT License**. Feel free to fork it, experiment with it, share it, or use it as educational material!
