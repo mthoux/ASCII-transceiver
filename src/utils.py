@@ -91,10 +91,10 @@ def pilot_analysis(signal, d=1.2):  # Passe la valeur de d en paramètre (ou ré
     # Points théoriques attendus pour chaque t_id (les 4 rotations possibles de [+d, +d])
     # À adapter selon la logique exacte de tes rotations dans `rotate_signal`
     scenarios = {
-        1: (+d, +d),   # Pas de rotation (ou rotation 0°)
-        2: (-d, +d),   # Rotation 90°
-        3: (-d, -d),   # Rotation 180°
-        4: (+d, -d)    # Rotation 270°
+        1: (+d, +d),   # i = 1 -> Pas de modification
+        2: (-d, +d),   # i = 2 -> Le canal fait [-b, a]
+        3: (-d, -d),   # i = 3 -> Le canal fait [-a, -b]
+        4: (+d, -d)    # i = 4 -> Le canal fait [b, -a]
     }
     
     # 2. On calcule la distance euclidienne au carré pour chaque scénario
@@ -107,3 +107,66 @@ def pilot_analysis(signal, d=1.2):  # Passe la valeur de d en paramètre (ou ré
     best_t_id = min(distances, key=distances.get)
     
     return best_t_id, (pilot_re, pilot_im)
+
+def puncture(bits, n, K):
+    """
+    Supprime exactement 'n' éléments (qui doivent être pairs !) dans le tableau 
+    de floats aplatis 'bits' pour ne pas désaligner les couples I/Q.
+    """
+    if n <= 0:
+        return list(bits)
+    
+    # TRUC INTELLIGENT : On s'assure de poinçonner des couples entiers (I, Q)
+    # n doit être un multiple de 2. Si n=6, on va supprimer 3 couples I/Q.
+    n_pairs = n // 2
+    total_len = len(bits)
+    total_pairs = total_len // 2
+    flush_pairs = (K - 1)  # La queue de flush en termes de couples de symboles
+    
+    safe_zone_start = 0
+    safe_zone_end = total_pairs - flush_pairs
+    
+    # On choisit les indices des COUPLES à supprimer
+    if (safe_zone_end - safe_zone_start) <= n_pairs:
+        pairs_to_remove = set(np.linspace(0, total_pairs - 1, n_pairs, dtype=int))
+    else:
+        pairs_to_remove = set(np.linspace(safe_zone_start, safe_zone_end - 1, n_pairs, dtype=int))
+    
+    # On reconstruit la liste en enlevant les floats des couples sélectionnés
+    punctured = []
+    for i in range(total_pairs):
+        if i not in pairs_to_remove:
+            punctured.append(bits[2*i])     # Garde I
+            punctured.append(bits[2*i + 1]) # Garde Q
+            
+    return punctured
+
+
+def depuncture(soft_bits, n, K):
+    """
+    Réinsère des paires de 0.0 aux positions exactes du poinçonnage.
+    """
+    if n <= 0:
+        return list(soft_bits)
+        
+    original_len = len(soft_bits) + n
+    original_pairs = original_len // 2
+    flush_pairs = (K - 1)
+    
+    n_pairs = n // 2
+    safe_zone_start = 0
+    safe_zone_end = original_pairs - flush_pairs
+    
+    if (safe_zone_end - safe_zone_start) <= n_pairs:
+        pairs_to_replace = list(np.linspace(0, original_pairs - 1, n_pairs, dtype=int))
+    else:
+        pairs_to_replace = list(np.linspace(safe_zone_start, safe_zone_end - 1, n_pairs, dtype=int))
+    
+    depunctured = list(soft_bits)
+    # On insère les couples de (0.0, 0.0) de gauche à droite
+    # Pour chaque couple à l'indice 'idx', cela correspond à l'indice float '2 * idx'
+    for idx in sorted(pairs_to_replace):
+        depunctured.insert(2 * idx, 0.0)     # Insère le faux I
+        depunctured.insert(2 * idx + 1, 0.0) # Insère le faux Q
+        
+    return depunctured

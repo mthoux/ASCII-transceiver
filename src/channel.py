@@ -32,4 +32,4 @@ def channel(x):
     Tx = Tx.reshape(-1)
     z = np.random.standard_normal(Tx.shape)
 
-    return (Tx + z)
+    return (Tx + z), i

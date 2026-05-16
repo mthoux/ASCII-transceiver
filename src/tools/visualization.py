@@ -13,7 +13,11 @@ def display_diagnostics(res):
     pilot_rx       = res['output']['pilot']
     energy         = res['stats']['energy']
     energy_per_bit = res['stats']['energy_per_bit']
+    bit_error_rate = res['stats']['bit_error_rate']
     total_l        = len(res['input']['signal'])
+    
+    # Récupération de la vraie rotation du canal (ID 0, 1, 2 ou 3)
+    chosen_rotation = res['debug']['rotation']
 
     # 1. En-tête et Configuration
     print(f"\n{BOLD}{'='*65}")
@@ -24,7 +28,7 @@ def display_diagnostics(res):
     print(f"Distance d : {conf['d']}")
     sep()
 
-    # 2. Analyse du texte (caractère par caractère)
+    # 2. Analyse du texte
     colored_decoded = ""
     for i in range(max(len(input_text), len(output_text))):
         c_orig = input_text[i] if i < len(input_text) else None
@@ -36,31 +40,27 @@ def display_diagnostics(res):
 
     print(f"{'Original':<20}: {input_text}")
     print(f"{'Decoded':<20}: {colored_decoded}")
-    print(f"{'Rotation':<20}: ID {t_id} (Pilot RX: {pilot_rx[0]:.2f}, {pilot_rx[1]:.2f})")
+    
+    # Mapping unique pour l'affichage en degrés (optionnel, juste pour la lisibilité)
+    id_to_angle = {1: 0, 2: 90, 3: 180, 4: 270}
+    true_angle       = id_to_angle.get(chosen_rotation, "??")
+    estimated_angle  = id_to_angle.get(t_id, "??")
+
+    # --- COMPARAISON DIRECTE DES IDs ---
+    rot_correct = (t_id == chosen_rotation)
+    rot_color = GREEN if rot_correct else RED
+
+    print(f"{'Rotation Canal':<20}: ID {chosen_rotation} ({true_angle}°)")
+    print(f"{'Rotation Estimée':<20}: {rot_color}ID {t_id} ({estimated_angle}°){RESET}")
     sep()
     
-    # 3. Visualisation des points (Lecture directe)
-    # print(f"{'TYPE':<12} | {'SYMBOLS (Sample of 5)':<45}")
-    # sep()
-    # mapping = [
-    #     ("TX (Sent)", res['input']['input_message_modulate']),
-    #     ("RX (Recv)", res['output']['output_signal'][2:]),
-    #     ("CX (Corr)", res['output']['output_message_corrected']),
-    #     ("QX (Quant)", res['output']['output_message_quantized'])
-    # ]
-    # for label, data in mapping:
-    #     sample = data[:10]
-    #     pts = " ".join([f"({sample[i]:.1f},{sample[i+1]:.1f})" for i in range(0, len(sample), 2)])
-    #     print(f"{label:<12} | {pts} ...")
-    
-    # sep()
-
     # 4. Métriques et Verdict
     e_ok, l_ok, c_ok = energy <= 1200, total_l <= 500, input_text == output_text
     
     print(f"ENERGY          : {GREEN if e_ok else RED}{energy:.2f}{RESET} / 1200")
     print(f"LENGTH          : {GREEN if l_ok else RED}{total_l}{RESET} / 500")
-    print(f"Energy per bit  : {energy_per_bit:.2f} J")
+    print(f"Bit Error Rate  : {GREEN if bit_error_rate == 0 else RED}{bit_error_rate:.2} %{RESET}")
+    print(f"Energy per bit  : {energy_per_bit:.2} J/b{RESET}")
 
     sep()
 
@@ -96,22 +96,10 @@ def print_diagnostics(res):
     print(f"Status : {status}")
     print("="*40 + "\n")
 
-
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-
 def plot_constellations(result):
     """
     Plot the raw received and phase-corrected constellations side by side,
-    followed by a full-width summary panel showing:
-      - Transcription accuracy (correct chars in green, errors in red)
-      - Energy, signal length, and BER metrics with pass/fail colouring
-      - Channel rotation ID, energy-per-bit, and overall verdict
+    with dynamically adjusted quadrant colors to support puncturing.
     """
     # 1 — STYLE & CONFIG
     try:
@@ -121,12 +109,12 @@ def plot_constellations(result):
 
     d       = result['config']['d']
     n_pilot = result['config']['n_pilot']
+    
     # 2 — QUADRANT COLOUR MAPPING
-    # Colour each transmitted symbol by its original quadrant.
     signal_in = result['input']['modulate']
     in_re     = signal_in[0::2]
     in_im     = signal_in[1::2]
-    n_symbols = len(in_re)
+    n_symbols_original = len(in_re)
 
     QUADRANT_COLORS = {
         1: '#2b7bba',  # Q1 — slate blue
@@ -139,44 +127,55 @@ def plot_constellations(result):
         3: 'Origin Q3', 4: 'Origin Q4',
     }
 
-    symbol_colors = np.empty(n_symbols, dtype=object)
-    for i in range(n_symbols):
+    # Génération des couleurs initiales pour TOUS les symboles générés
+    original_colors = []
+    for i in range(n_symbols_original):
         re, im = in_re[i], in_im[i]
         if   re > 0 and im > 0: q = 1
         elif re < 0 and im > 0: q = 2
         elif re < 0 and im < 0: q = 3
         else:                   q = 4
-        symbol_colors[i] = QUADRANT_COLORS[q]
-    # 3 — DATA EXTRACTION
-    # Raw pilot symbols.
+        original_colors.append(QUADRANT_COLORS[q])
+
+    # 3 — DATA EXTRACTION & PUCTURE ADJUSTMENT
+    # Signaux bruts reçus du canal
     pilots_raw    = result['output']['signal'][:2 * n_pilot]
     pilot_raw_re  = pilots_raw[0::2]
     pilot_raw_im  = pilots_raw[1::2]
     pilot_out_re, pilot_out_im = result['output']['pilot']
 
-    # Raw data symbols (after pilots).
+    # Récupération des données reçues (poinçonnées !)
     raw_signal = result['output']['signal'][2 * n_pilot:]
     raw_re     = raw_signal[0::2]
     raw_im     = raw_signal[1::2]
+    n_symbols_received = len(raw_re)
 
-    # Phase-corrected data symbols.
+    # Récupération du signal corrigé
     corrected = result['output']['corrected']
+    # Sécurité si jamais les pilotes sont encore présents dans corrected
     if len(corrected) == len(result['output']['signal']):
         corrected = corrected[2 * n_pilot:]
     corr_re = corrected[0::2]
     corr_im = corrected[1::2]
 
-    # 4 — FIGURE & AXES LAYOUT
+    # --- CORRECTION DU BUG DE COULEUR ---
+    # Si le signal reçu est plus court à cause du poinçonnage, 
+    # on adapte la taille des couleurs pour correspondre aux points restants.
+    if n_symbols_received < n_symbols_original:
+        # Cas où le poinçonnage a été fait de manière uniforme / linéaire ou par paires
+        # On échantillonne les couleurs d'origine pour fitter la taille reçue
+        indices = np.linspace(0, n_symbols_original - 1, n_symbols_received, dtype=int)
+        symbol_colors = [original_colors[idx] for idx in indices]
+    else:
+        symbol_colors = original_colors
 
+    # 4 — FIGURE & AXES LAYOUT
     fig = plt.figure(figsize=(10, 5.8), facecolor='#fdfdfd')
-    # Top row (87 %) holds the two constellation plots;
-    # bottom row (13 %) holds the summary banner.
     gs  = fig.add_gridspec(2, 2, height_ratios=[0.87, 0.13])
     ax1 = fig.add_subplot(gs[0, 0])
     ax2 = fig.add_subplot(gs[0, 1])
 
     # 5 — LEFT PLOT: RAW RECEIVED CONSTELLATION
-
     ax1.scatter(raw_re, raw_im,
                 c=symbol_colors, alpha=0.5, s=20, zorder=2)
     ax1.scatter([d, -d, -d,  d], [d, d, -d, -d],
@@ -188,8 +187,7 @@ def plot_constellations(result):
                 color='#f39c12', edgecolor='#c0392b', linewidths=1.2,
                 s=200, marker='*', zorder=4)
 
-    ax1.set_title('Raw Received Constellation',
-                 fontsize=11, fontweight='bold', pad=8)
+    ax1.set_title('Raw Received Constellation', fontsize=11, fontweight='bold', pad=8)
     ax1.set_xlabel('In-phase (I)',   fontsize=9)
     ax1.set_ylabel('Quadrature (Q)', fontsize=9)
     ax1.axhline(0, color='#7f8c8d', linewidth=0.8, linestyle=':')
@@ -199,14 +197,12 @@ def plot_constellations(result):
     ax1.set_aspect('equal')
 
     # 6 — RIGHT PLOT: PHASE-CORRECTED CONSTELLATION
-
     ax2.scatter(corr_re, corr_im,
                 c=symbol_colors, alpha=0.5, s=20, zorder=2)
     ax2.scatter([d, -d, -d,  d], [d, d, -d, -d],
                 color='#1d242a', marker='x', s=80, alpha=0.9, zorder=1)
 
-    ax2.set_title('Phase-Corrected Constellation',
-                 fontsize=11, fontweight='bold', pad=8)
+    ax2.set_title('Phase-Corrected Constellation', fontsize=11, fontweight='bold', pad=8)
     ax2.set_xlabel('In-phase (I)',   fontsize=9)
     ax2.set_ylabel('Quadrature (Q)', fontsize=9)
     ax2.axhline(0, color='#7f8c8d', linewidth=0.8, linestyle=':')
@@ -214,6 +210,7 @@ def plot_constellations(result):
     ax2.set_xlim([-d * 2.5, d * 2.5])
     ax2.set_ylim([-d * 2.5, d * 2.5])
     ax2.set_aspect('equal')
+
     # 7 — SHARED LEGEND
     legend_handles = [
         Line2D([0], [0], marker='o', color='w',
@@ -233,6 +230,7 @@ def plot_constellations(result):
         loc='upper center', bbox_to_anchor=(0.5, 0.95),
         ncol=7, fontsize='x-small', frameon=True, facecolor='#ffffff',
     )
+
     # 8 — SUMMARY BANNER (FULL-WIDTH BOTTOM ROW)
     text_in  = result['input']['text']
     text_out = result['output']['text']
@@ -251,80 +249,31 @@ def plot_constellations(result):
     ax_banner = fig.add_subplot(gs[1, :])
     ax_banner.set_facecolor('#ffffff')
 
-    # Y coordinates for the four text rows (axes fraction, top to bottom).
     Y = [0.76, 0.52, 0.28, 0.04]
 
-    # -- Section headers --
-    for label, y in [(
-        '[ TRANSCRIPTION ]', Y[0]), ('[ PERFORMANCE ]', Y[2]), ('[ SYSTEM STATUS ]', Y[3])
-    ]:
-        ax_banner.text(0.02, y, label,
-                      color=C_DARK, fontweight='bold',
-                      fontfamily='monospace', fontsize=9,
-                      transform=ax_banner.transAxes)
+    for label, y in [('[ TRANSCRIPTION ]', Y[0]), ('[ PERFORMANCE ]', Y[2]), ('[ SYSTEM STATUS ]', Y[3])]:
+        ax_banner.text(0.02, y, label, color=C_DARK, fontweight='bold', fontfamily='monospace', fontsize=9, transform=ax_banner.transAxes)
 
-    # -- Transcription block --
-    # Overlay three text layers at the same anchor:
-    #   base  → original text + "Decoded:" prefix (dark)
-    #   green → correctly decoded characters
-    #   red   → incorrectly decoded characters
     max_len = max(len(text_in), len(text_out))
     padded_in  = text_in.ljust(max_len)
     padded_out = text_out.ljust(max_len)
-    indent     = '           '  # aligns decoded chars under the original
+    indent     = '           '
 
     base_layer  = f'Original : {text_in}\nDecoded  : '
-    green_layer = '\n' + indent + ''.join(
-        c if c == padded_in[i] else ' '
-        for i, c in enumerate(padded_out)
-    )
-    red_layer   = '\n' + indent + ''.join(
-        c if c != padded_in[i] else ' '
-        for i, c in enumerate(padded_out)
-    )
+    green_layer = '\n' + indent + ''.join(c if c == padded_in[i] else ' ' for i, c in enumerate(padded_out))
+    red_layer   = '\n' + indent + ''.join(c if c != padded_in[i] else ' ' for i, c in enumerate(padded_out))
 
-    for text, color, bold in [
-        (base_layer,  C_DARK,  False),
-        (green_layer, C_GREEN, True),
-        (red_layer,   C_RED,   True),
-    ]:
-        ax_banner.text(0.20, Y[1], text,
-                      color=color,
-                      fontweight='bold' if bold else 'normal',
-                      fontfamily='monospace', fontsize=9,
-                      transform=ax_banner.transAxes)
+    for text, color, bold in [(base_layer, C_DARK, False), (green_layer, C_GREEN, True), (red_layer, C_RED, True)]:
+        ax_banner.text(0.20, Y[1], text, color=color, fontweight='bold' if bold else 'normal', fontfamily='monospace', fontsize=9, transform=ax_banner.transAxes)
 
-    # -- Performance metrics --
-    ax_banner.text(0.20, Y[2],
-                  f'Energy : {energy:.2f} / 1200 J',
-                  color=C_GREEN if energy_ok else C_RED,
-                  fontfamily='monospace', fontsize=9, fontweight='bold',
-                  transform=ax_banner.transAxes)
-    ax_banner.text(0.48, Y[2],
-                  f'Length : {sig_len} / 500 samples',
-                  color=C_GREEN if length_ok else C_RED,
-                  fontfamily='monospace', fontsize=9, fontweight='bold',
-                  transform=ax_banner.transAxes)
-    ax_banner.text(0.76, Y[2],
-                  f'BER    : {ber_pct:.3f} %',
-                  color=C_GREEN if ber_pct == 0 else C_DARK,
-                  fontfamily='monospace', fontsize=9,
-                  transform=ax_banner.transAxes)
+    ax_banner.text(0.20, Y[2], f'Energy : {energy:.2f} / 1200 J', color=C_GREEN if energy_ok else C_RED, fontfamily='monospace', fontsize=9, fontweight='bold', transform=ax_banner.transAxes)
+    ax_banner.text(0.48, Y[2], f'Length : {sig_len} / 500 samples', color=C_GREEN if length_ok else C_RED, fontfamily='monospace', fontsize=9, fontweight='bold', transform=ax_banner.transAxes)
+    ax_banner.text(0.76, Y[2], f'BER    : {ber_pct:.3f} %', color=C_GREEN if ber_pct == 0 else C_DARK, fontfamily='monospace', fontsize=9, transform=ax_banner.transAxes)
 
-    # -- System status --
-    status_prefix = (
-        f'Channel rotation ID: {result["output"]["t_id"]}  |  '
-        f'Energy/bit: {result["stats"]["energy_per_bit"]:.2f} J  |  Verdict: '
-    )
-    ax_banner.text(0.20, Y[3], status_prefix,
-                  color=C_DARK, fontfamily='monospace', fontsize=9,
-                  transform=ax_banner.transAxes)
-    ax_banner.text(0.72, Y[3], verdict,
-                  color=C_GREEN if verdict == 'SUCCESS' else C_RED,
-                  fontfamily='monospace', fontsize=9, fontweight='bold',
-                  transform=ax_banner.transAxes)
+    status_prefix = f'Channel rotation ID: {result["output"]["t_id"]}  |  Energy/bit: {result["stats"]["energy_per_bit"]:.2f} J/b  |  Verdict: '
+    ax_banner.text(0.20, Y[3], status_prefix, color=C_DARK, fontfamily='monospace', fontsize=9, transform=ax_banner.transAxes)
+    ax_banner.text(0.72, Y[3], verdict, color=C_GREEN if verdict == 'SUCCESS' else C_RED, fontfamily='monospace', fontsize=9, fontweight='bold', transform=ax_banner.transAxes)
 
-    # -- Banner cosmetics --
     ax_banner.grid(False)
     ax_banner.set_xticks([])
     ax_banner.set_yticks([])

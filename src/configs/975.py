@@ -34,19 +34,19 @@ ENCODING = classic_encoding
 # Physical & Modulation Parameters
 # ===========================================================================
 
-D_SPACING       = 1.05
-N_PILOT         = 1
-BOOST_FACTOR    = 4
-PUNCTURED_BIT   = 8
+D_SPACING       = 1.37
+N_PILOT         = 3
+BOOST_FACTOR    = 2.4
+PUNCTURED_BIT   = 6
 
 
 
 # ===========================================================================
-# Convolutional Code Configuration  
+# Convolutional Code Configuration
 # ===========================================================================
 
-K = 14
-G = [0o21675, 0o35623]  # Standard rate 1/2 constraint 7 polynomials
+K = 11
+G = [0o1533, 0o1751]  # Standard rate 1/2 constraint 7 polynomials
 
 # ===========================================================================
 # System Constraints
