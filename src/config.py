@@ -1,5 +1,5 @@
 # config.py
-D_SPACING = 1
+D_SPACING = 1.3
 N_PILOT = 3
 
 # config convoltional codes
