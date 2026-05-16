@@ -111,8 +111,6 @@ This project is an incredible learning tool. If you want to sharpen your digital
 
 If you want to explore the project, we highly recommend using the visualization. It beautifully demonstrates how messy and mixed the data constellation looks when the QAM spacing ($d$) is small, showcasing the incredible error-correcting power of the Soft Viterbi algorithm.
 
----
-
 ## 🚀 Usage
 
 ### 1. Environment Setup
