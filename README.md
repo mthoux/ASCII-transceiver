@@ -124,7 +124,7 @@ python3 -m venv venv
 # On Linux/macOS:
 source venv/bin/activate
 # On Windows:
-# .\venv\Scripts\activate
+.\venv\Scripts\activate
 
 # Install requirements
 pip install -r requirements.txt
@@ -159,7 +159,7 @@ The mathematical derivations and theoretical exercises behind this implementatio
 ---
 
 ## Authors
-* **[@mthoux](https://github.com/mthoux)** — Transceiver and theory
+* **[@mthoux](https://github.com/mthoux)** — Code
 * **[@Romain-du-25](https://github.com/Romain-du-25)** — Theory
 * **[@DrMoebius1](https://github.com/DrMoebius1)** — Theory
 
