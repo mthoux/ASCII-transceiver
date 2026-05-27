@@ -6,6 +6,9 @@ Since the project guidelines required our system to support a specific 64-charac
 
 > 💡 **Note on the Implementation:** Since this course focuses purely on *digital* communications, the entire analog portion of the pipeline —including the channel effects— is mocked using a Python script. Our software implementation handling the actual data stream effectively ends at the modulation stage before the simulation takes over.
 
+The official project guidelines and task parameters can be accessed here:  
+🔗 [Read the Project Description (PDF)](assets/project_description.pdf)
+
 ![Processed constellations](assets/constellations.png)
 
 ---
@@ -152,9 +155,12 @@ python3 -m src.tools.test
 
 ---
 
-## 📜 Theory References
-The mathematical derivations and theoretical exercises behind this implementation can be found in our Overleaf document:  
-🔗 [View Theory Document](assets/project_theory.pdf)
+## 📜 Project Theory
+
+The theoretical derivations and analytical exercises for this project are available directly in the `assets/` directory:
+
+* 📄 [Theory Assignment (PDF)](assets/theory_assignment.pdf) — The given assignment with exercices
+* ✍️ [Theory Solution (PDF)](assets/theory_solution.pdf) — Our complete document containing all mathematical derivations, proofs, and analytical solutions
 
 ---
 
