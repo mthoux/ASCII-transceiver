@@ -39,3 +39,9 @@ wheels/
 
 note.txt
 garbage/
+*.pyc
+*.nbc
+*.nbi
+
+src/client/input.txt
+src/client/output.txt

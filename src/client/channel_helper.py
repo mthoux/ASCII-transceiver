@@ -95,3 +95,4 @@ def recv_bytes(sock, N_byte):
 
     byte_data = b''.join(packets)
     return byte_data
+

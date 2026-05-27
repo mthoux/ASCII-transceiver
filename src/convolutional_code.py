@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit, prange
 
 # ---------------------------------------------------------------------------
-# Private functions (Optimisées pour éviter TOUTE allocation en boucle)
+# Private functions
 # ---------------------------------------------------------------------------
 
 @njit(cache=True, fastmath=True)
@@ -17,14 +17,13 @@ def _compute_xor(register: np.ndarray, g: int) -> int:
 
 @njit(cache=True, fastmath=True)
 def _create_matrice(entry_bit: int, K: int, G: np.ndarray) -> np.ndarray:
-    """Trellis sub-matrix for a given input bit (Optimisé)."""
+    """Trellis sub-matrix for a given input bit."""
     n_states     = 1 << (K - 1)
     state_length = K - 1
     entry_length = 1 + 2 * state_length + len(G)
 
     matrice = np.zeros((n_states, entry_length), dtype=np.int32)
     
-    # On alloue une seule fois ces tableaux de travail à l'extérieur de la boucle
     current_state_bits = np.zeros(state_length, dtype=np.int32)
     full_register = np.zeros(K, dtype=np.int32)
 
@@ -85,7 +84,7 @@ def _create_treillis(K: int, G: np.ndarray, d: float):
 
 
 # ---------------------------------------------------------------------------
-# Encoder (Boosté à 100% avec Numba)
+# Encoder (Boosted with Numba)
 # ---------------------------------------------------------------------------
 
 @njit(cache=True, fastmath=True)
@@ -93,11 +92,9 @@ def _encode_fast(message_arr: np.ndarray, K: int, G_arr: np.ndarray) -> np.ndarr
     len_msg = len(message_arr)
     len_G = len(G_arr)
     
-    # Création du tableau de padded directement en NumPy
     padded = np.zeros((K - 1) * 2 + len_msg, dtype=np.int32)
     padded[K - 1 : K - 1 + len_msg] = message_arr
     
-    # Allocation unique du tableau de sortie
     total_steps = len_msg + K - 1
     result = np.zeros(total_steps * len_G, dtype=np.int32)
     
@@ -105,7 +102,6 @@ def _encode_fast(message_arr: np.ndarray, K: int, G_arr: np.ndarray) -> np.ndarr
     out_idx = 0
     
     for i in range(total_steps):
-        # Copie manuelle ultra rapide pour Numba
         for idx_w in range(K):
             arr_window[idx_w] = padded[i + idx_w]
             
@@ -116,7 +112,7 @@ def _encode_fast(message_arr: np.ndarray, K: int, G_arr: np.ndarray) -> np.ndarr
     return result
 
 def encode(message: list[int], K: int, G: list[int]) -> list[int]:
-    """Encodes a message using a convolutional code (K,G) - Version accélérée."""
+    """Encodes a message using a convolutional code (K,G)."""
     message_arr = np.array(message, dtype=np.int32)
     G_arr = np.array(G, dtype=np.int32)
     res_arr = _encode_fast(message_arr, K, G_arr)
@@ -124,7 +120,7 @@ def encode(message: list[int], K: int, G: list[int]) -> list[int]:
 
 
 # ---------------------------------------------------------------------------
-# Decoder (Optimisations mémoires critiques + Fastmath)
+# Decoder
 # ---------------------------------------------------------------------------
 
 @njit(cache=True, fastmath=True, parallel=True)

@@ -2,12 +2,13 @@ import sys
 import numpy as np
 import src.config as config
 from src.channel import channel
+from src.client.online_channel import online_channel
 from src.utils import *
 import src.tools.visualization as visualization
 import src.convolutional_code as convolutional_code
 import random
 
-def transceiver(input_text, encoding_dict, d, n_pilot, K, G, boost_factor, punctured_bit):
+def transceiver(input_text, encoding_dict, d, n_pilot, K, G, boost_factor, punctured_bit, use_online_channel=False):
 
     # --- TRANSMITTER ---
     # Construct signal, start with pilot
@@ -19,7 +20,11 @@ def transceiver(input_text, encoding_dict, d, n_pilot, K, G, boost_factor, punct
     input_signal        = input_pilot + input_puncture                                  # Create signal
 
     # --- CHANNEL ---
-    output_signal, chosen_rotation = channel(input_signal)                              # Send signal trough channel
+    if not use_online_channel:
+        output_signal, chosen_rotation = channel(input_signal)                          # Send signal trough channel
+    else:
+        output_signal = online_channel(input_signal, srv_hostname="iscsrv72.epfl.ch", srv_port="80")
+        chosen_rotation = None
     
     # --- RECEIVER ---
     t_id, output_pilot  = pilot_analysis(output_signal[0:2*n_pilot], d*boost_factor)    # Pilot analysis
@@ -81,7 +86,8 @@ if __name__ == "__main__":
                       K=config.K, 
                       G=config.G,
                       boost_factor=config.BOOST_FACTOR,
-                      punctured_bit=config.PUNCTURED_BIT)
+                      punctured_bit=config.PUNCTURED_BIT,
+                      use_online_channel=config.use_online_channel)
 
     visualization.display_diagnostics(res)
     visualization.plot_constellations(res)

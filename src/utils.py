@@ -116,8 +116,7 @@ def puncture(bits, n, K):
     if n <= 0:
         return list(bits)
     
-    # TRUC INTELLIGENT : On s'assure de poinçonner des couples entiers (I, Q)
-    # n doit être un multiple de 2. Si n=6, on va supprimer 3 couples I/Q.
+    # On s'assure de poinçonner des couples entiers (I, Q)
     n_pairs = n // 2
     total_len = len(bits)
     total_pairs = total_len // 2
@@ -127,7 +126,7 @@ def puncture(bits, n, K):
     safe_zone_end = total_pairs - flush_pairs
     
     # On choisit les indices des COUPLES à supprimer
-    if (safe_zone_end - safe_zone_start) <= n_pairs:
+    if (safe_zone_end) <= n_pairs:
         pairs_to_remove = set(np.linspace(0, total_pairs - 1, n_pairs, dtype=int))
     else:
         pairs_to_remove = set(np.linspace(safe_zone_start, safe_zone_end - 1, n_pairs, dtype=int))

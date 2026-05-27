@@ -36,7 +36,7 @@ ENCODING = classic_encoding
 # Physical & Modulation Parameters
 # ===========================================================================
 
-D_SPACING       = 1.13
+D_SPACING       = 1.09
 N_PILOT         = 1
 BOOST_FACTOR    = 3
 PUNCTURED_BIT   = 24
@@ -47,7 +47,7 @@ PUNCTURED_BIT   = 24
 # ===========================================================================
 
 K=22
-G = [0o5536415, 0o7234563]  # Standard rate 1/2 constraint 7 polynomials
+G = [0o13532674, 0o16534523]  # Standard rate 1/2 constraint 7 polynomials
 
 # ===========================================================================
 # System Constraints
