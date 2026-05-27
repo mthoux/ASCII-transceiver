@@ -154,7 +154,7 @@ python3 -m src.tools.test
 
 ## 📜 Theory References
 The mathematical derivations and theoretical exercises behind this implementation can be found in our Overleaf document:  
-🔗 [View Theory Document](https://www.overleaf.com/project/6a00a5d3ddacfe8cdca0dc5a)
+🔗 [View Theory Document](assets/project_theory.pdf)
 
 ---
 
