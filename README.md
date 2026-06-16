@@ -29,7 +29,7 @@ We were tasked with transmitting a message under the following physical and arch
 * **Pilot Generation:** Creates a known sequence of identical inputs used by the receiver for channel calibration.
 * **Source Coding:** Maps the character alphabet to binary bits (e.g., experimenting with Huffman coding optimized for the English language).
 * **Channel Coding:** Encodes the bitstream using a Convolutional Code.
-* **Modulation:** Maps the encoded bits into 4-QAM (Quadrature Amplitude Modulation) symbols.
+* **Modulation:** Maps the encoded bits into QPSK (Quadrature Phase Shift Keying) symbols.
 * **Puncturing (Symbol-Level):** Deliberately discards specific modulated symbols from the stream according to a strict pattern. This shortens the transmitted sequence to meet the 500-value constraint and save transmission energy.
 
 ### 2. The Channel (Simulated Noise)
