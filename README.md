@@ -55,7 +55,7 @@ The choice of the convolutional code configuration—defined by the constraint l
 The parameter $d_{\text{free}}$ dictates the absolute error-correction capability of the algorithm. Specifically, a convolutional code is guaranteed to correct up to:
 $$\left\lfloor \frac{d_{\text{free}} - 1}{2} \right\rfloor \text{ errors}$$
 
-Maximizing $d_{\text{free}}$ allows for a significant reduction of the $d_{\text{spacing}}$ margin in the 4QAM modulation constellation. However, this optimization introduces key architectural trade-offs:
+Maximizing $d_{\text{free}}$ allows for a significant reduction of the $d_{\text{spacing}}$ margin in the QPSK modulation constellation. However, this optimization introduces key architectural trade-offs:
 * **Flushing Overhead:** A convolutional code $(K, G)$ requires appending $K-1$ flushing bits to the end of the message sequence to return the encoder to the zero state.
 * **Puncturing Mechanism:** Because our system is strictly constrained to a 500-value table layout, we must occasionally omit data to fit structural limits. To maximize the performance of our **Soft-Decision Viterbi**, our pipeline performs **symbol-level puncturing** after the modulation stage (instead of traditional bit-level puncturing before modulation). This ensures that the receiver can seamlessly reinsert neutral values ($LLR = 0$) directly into the continuous analog-like stream before feeding it into the soft decoder.
 * **Computational Complexity:** Larger values of $(K, G)$ drastically increase the state-space and execution time. 
